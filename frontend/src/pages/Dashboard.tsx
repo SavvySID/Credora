@@ -19,8 +19,10 @@ interface CreditScore {
   score: 'High' | 'Medium' | 'Low';
 }
 
-// Backend API base URL (configurable via Vite env)
-const API_BASE = (import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3001';
+// API prefix: use Vercel serverless functions in production, else local or env URL
+const API_PREFIX = import.meta.env.PROD
+  ? '/api'
+  : ((import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3001');
 
 export default function Dashboard() {
   const { account, balance, isConnected, connectWallet } = useWallet();
@@ -150,7 +152,7 @@ export default function Dashboard() {
       const fetchCreditScore = async () => {
         setIsLoading(true);
         try {
-          const response = await fetch(`${API_BASE}/getCreditScore?wallet=${account}`);
+          const response = await fetch(`${API_PREFIX}/getCreditScore?wallet=${account}`);
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
