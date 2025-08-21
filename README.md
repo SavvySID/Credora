@@ -52,36 +52,90 @@ credora/
 
 ## ⚙️ Installation & Setup
 
-### 1. Clone the Repo
+### Prerequisites
+
+- **Node.js** (v16 or higher)
+- **npm** (v8 or higher)
+- **MetaMask** browser extension
+- **Ethereum testnet** (Goerli/Sepolia) with test ETH
+
+### 1. Clone and Setup
 
 ```bash
 git clone https://github.com/<your-username>/credora.git
 cd credora
+npm run install:all
 ```
 
 ### 2. Smart Contracts
 
 ```bash
+# Navigate to contracts directory
 cd contracts
+
+# Install dependencies
 npm install
-npx hardhat compile
-npx hardhat test
+
+# Compile contracts
+npm run compile
+
+# Run tests
+npm test
+
+# Deploy to local network (for testing)
+npx hardhat node
+npx hardhat run scripts/deploy.js --network localhost
+
+# Deploy to testnet (optional)
+# First, create .env file with your private key and RPC URLs
+npx hardhat run scripts/deploy.js --network goerli
 ```
 
 ### 3. Backend AI Service
 
 ```bash
+# Navigate to backend directory
 cd backend
-npm install   # or pip install -r requirements.txt
-npm run start
+
+# Install dependencies
+npm install
+
+# Start the service
+npm run dev
+# or
+npm start
 ```
+
+The backend will run on `http://localhost:3001`
 
 ### 4. Frontend
 
 ```bash
+# Navigate to frontend directory
 cd frontend
+
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
+```
+
+The frontend will run on `http://localhost:3000`
+
+### 5. Quick Start (All Services)
+
+From the root directory:
+
+```bash
+# Terminal 1: Start backend
+npm run dev:backend
+
+# Terminal 2: Start frontend  
+npm run dev:frontend
+
+# Terminal 3: Start local blockchain (optional)
+cd contracts && npx hardhat node
 ```
 
 ---
@@ -102,6 +156,34 @@ npm run dev
 * Only **rule-based eligibility** in smart contract.
 * No lending pools (direct borrowing only).
 * No privacy/reputation features (coming in later waves).
+
+## 🧪 Testing the API
+
+### Test Credit Score Endpoint
+
+```bash
+# Test with example wallet
+curl "http://localhost:3001/getCreditScore?wallet=0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
+
+# Expected response:
+{
+  "wallet": "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
+  "creditScore": "High",
+  "walletData": {
+    "balance": "2.5 ETH",
+    "transactionCount": 25,
+    "lastActivity": "2024-01-15"
+  },
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "wave": "Wave 1 MVP - Rule-based AI placeholder"
+}
+```
+
+### Test Health Check
+
+```bash
+curl "http://localhost:3001/health"
+```
 
 ---
 
