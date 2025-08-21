@@ -1,0 +1,40 @@
+{
+  "name": "credora",
+  "version": "1.0.0",
+  "description": "AI-powered decentralized lending dApp - Wave 1 MVP",
+  "private": true,
+  "workspaces": [
+    "contracts",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install && npm run install:contracts && npm run install:backend && npm run install:frontend",
+    "install:contracts": "cd contracts && npm install",
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:contracts": "cd contracts && npm run compile",
+    "build:frontend": "cd frontend && npm run build",
+    "test:contracts": "cd contracts && npm test",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm run preview"
+  },
+  "keywords": [
+    "ai",
+    "defi",
+    "lending",
+    "ethereum",
+    "solidity",
+    "react",
+    "nodejs",
+    "credora"
+  ],
+  "author": "Credora Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  }
+}
