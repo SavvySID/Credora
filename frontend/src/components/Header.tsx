@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Wallet } from 'lucide-react';
-import { useWallet } from '../contexts/WalletContext';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { account, isConnected, connectWallet, disconnectWallet } = useWallet();
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
@@ -47,26 +46,9 @@ export default function Header() {
 
           {/* Wallet Connection */}
           <div className="flex items-center space-x-4">
-            {isConnected ? (
-              <div className="flex items-center space-x-3">
-                <span className="text-sm text-gray-300">
-                  {account?.slice(0, 6)}...{account?.slice(-4)}
-                </span>
-                <button
-                  onClick={disconnectWallet}
-                  className="btn-secondary text-sm px-4 py-2"
-                >
-                  Disconnect
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={connectWallet}
-                className="btn-primary text-sm px-4 py-2"
-              >
-                Connect Wallet
-              </button>
-            )}
+            <div className="hover-lift">
+              <ConnectButton />
+            </div>
 
             {/* Mobile menu button */}
             <button
