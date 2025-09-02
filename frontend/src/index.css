@@ -4,6 +4,51 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Rainbow Kit Custom Styles */
+[data-rk] {
+  --rk-radii-modal: 12px;
+  --rk-radii-modalAction: 8px;
+  --rk-radii-modalMobile: 12px;
+  --rk-colors-accentColor: #06b6d4;
+  --rk-colors-accentColorForeground: #ffffff;
+  --rk-colors-actionButtonBorder: rgba(6, 182, 212, 0.2);
+  --rk-colors-actionButtonSecondaryBackground: rgba(6, 182, 212, 0.1);
+  --rk-colors-connectButtonBackground: #06b6d4;
+  --rk-colors-connectButtonBackgroundError: #ef4444;
+  --rk-colors-connectButtonInnerBackground: #06b6d4;
+  --rk-colors-connectButtonText: #ffffff;
+  --rk-colors-connectButtonTextError: #ffffff;
+  --rk-colors-connectionIndicator: #10b981;
+  --rk-colors-error: #ef4444;
+  --rk-colors-modalBackground: #1e293b;
+  --rk-colors-modalBackdrop: rgba(0, 0, 0, 0.5);
+  --rk-colors-modalBorder: rgba(6, 182, 212, 0.2);
+  --rk-colors-modalText: #ffffff;
+  --rk-colors-modalTextSecondary: #94a3b8;
+  --rk-colors-profileAction: rgba(6, 182, 212, 0.1);
+  --rk-colors-profileActionHover: rgba(6, 182, 212, 0.2);
+  --rk-colors-profileForeground: #1e293b;
+  --rk-colors-selectedOptionBorder: #06b6d4;
+  --rk-colors-standby: #f59e0b;
+}
+
+/* Additional Rainbow Kit Button Overrides */
+[data-rk] button[data-testid="connect-button"] {
+  background-color: #06b6d4 !important;
+  border-color: #06b6d4 !important;
+  color: #ffffff !important;
+}
+
+[data-rk] button[data-testid="connect-button"]:hover {
+  background-color: #0891b2 !important;
+  border-color: #0891b2 !important;
+}
+
+[data-rk] button[data-testid="connect-button"]:active {
+  background-color: #0e7490 !important;
+  border-color: #0e7490 !important;
+}
+
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
@@ -49,6 +94,32 @@
   
   .card-hover {
     @apply transition-all duration-300 hover:bg-white/15 hover:scale-105 hover:shadow-2xl;
+  }
+
+  /* Rainbow Kit ConnectButton Custom Styling */
+  [data-rk] .connect-button {
+    @apply transition-all duration-200 hover:scale-105;
+  }
+  
+  [data-rk] .connect-button button {
+    @apply shadow-lg hover:shadow-xl transition-all duration-200;
+  }
+
+  /* Force cyan color on all Rainbow Kit buttons */
+  [data-rk] button {
+    background-color: #06b6d4 !important;
+    border-color: #06b6d4 !important;
+    color: #ffffff !important;
+  }
+
+  [data-rk] button:hover {
+    background-color: #0891b2 !important;
+    border-color: #0891b2 !important;
+  }
+
+  [data-rk] button:active {
+    background-color: #0e7490 !important;
+    border-color: #0e7490 !important;
   }
 }
 
