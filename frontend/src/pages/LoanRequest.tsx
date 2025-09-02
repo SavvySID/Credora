@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useWallet } from '../contexts/WalletContext';
-import { DollarSign, Calculator, AlertCircle, CheckCircle, XCircle, Shield, Zap, TrendingUp, Users, Wallet, ArrowRight } from 'lucide-react';
+import { useWallet } from '../hooks/useWallet';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { DollarSign, Calculator, CheckCircle, XCircle, Shield, Zap, TrendingUp, Users, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoanRequest() {
-  const { account, balance, isConnected, connectWallet } = useWallet();
+  const { account, balance, isConnected } = useWallet();
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loanStatus, setLoanStatus] = useState<'idle' | 'approved' | 'denied'>('idle');
@@ -77,13 +78,9 @@ export default function LoanRequest() {
                 <p className="text-gray-300 mb-6">
                   To request a loan, you need to connect your MetaMask or any Web3 wallet first.
                 </p>
-                <button
-                  onClick={connectWallet}
-                  className="btn-primary text-lg px-8 py-4 inline-flex items-center gap-2 hover:scale-105 transition-transform"
-                >
-                  <Wallet className="w-5 h-5" />
-                  Connect Wallet
-                </button>
+                <div className="flex justify-center mb-4 hover-lift">
+                  <ConnectButton />
+                </div>
                 <p className="text-sm text-gray-400 mt-4">
                   Don't have a wallet? <a href="https://metamask.io" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Install MetaMask</a>
                 </p>
