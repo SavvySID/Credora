@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useWallet } from '../contexts/WalletContext';
-import { TrendingUp, Clock, DollarSign, ArrowRight, Wallet, Shield, Zap, Users, CheckCircle, BarChart3, Activity, CreditCard, PieChart } from 'lucide-react';
+import { useWallet } from '../hooks/useWallet';
+// import { useCreditScore, useZeroGStatus } from '../hooks/useCreditScore';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { TrendingUp, Clock, DollarSign, ArrowRight, Wallet, Shield, Zap, Users, CheckCircle, BarChart3, Activity, CreditCard, PieChart, Wifi, WifiOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ActivityItem {
   id: string;
-  type: 'wallet_connected' | 'credit_score_updated' | 'loan_requested' | 'loan_approved' | 'loan_repaid';
+  type: 'wallet_connected' | 'credit_score_updated' | 'loan_requested' | 'loan_approved' | 'loan_repaid' | 'real_time_update';
   title: string;
   description: string;
   timestamp: Date;
@@ -14,22 +16,37 @@ interface ActivityItem {
   color: string;
 }
 
-interface CreditScore {
-  wallet: string;
-  score: 'High' | 'Medium' | 'Low';
-}
-
-// API prefix: use Vercel serverless functions in production, else local or env URL
-const API_PREFIX = import.meta.env.PROD
-  ? '/api'
-  : ((import.meta as any).env?.VITE_API_URL ?? 'http://localhost:3001');
 
 export default function Dashboard() {
-  const { account, balance, isConnected, connectWallet } = useWallet();
-  const [creditScore, setCreditScore] = useState<CreditScore | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { account, balance, isConnected } = useWallet();
+  
+  // Temporarily use mock data to prevent white screen
+  // TODO: Re-enable 0G hooks once services are properly configured
   const [activities, setActivities] = useState<ActivityItem[]>([]);
-
+  
+  // Mock data for now to prevent crashes
+  const creditScore = {
+    creditScore: 750,
+    riskLevel: 'Medium' as 'Low' | 'Medium' | 'High',
+    confidence: 0.85,
+    factors: ['Good transaction history', 'Sufficient balance'],
+    walletData: {
+      balance: '2.5 ETH',
+      transactionCount: 25,
+      lastActivity: '2024-01-15T10:30:00Z',
+    },
+    timestamp: new Date().toISOString(),
+    modelVersion: '1.0.0',
+    poweredBy: '0G AI/ML Engine',
+  };
+  const isLoading = false;
+  const error = null;
+  const isRealTimeConnected = false;
+  const zeroGStatus = { initialized: false, pipelineConnected: false, subscriberCount: 0 };
+  const refresh = () => {
+    console.log('Refresh not available in mock mode');
+  };
+  
   // Helper function to format time ago
   const formatTimeAgo = (date: Date): string => {
     const now = new Date();
@@ -89,7 +106,7 @@ export default function Dashboard() {
         });
       }
     }
-  }, [isConnected, account, addActivity]);
+  }, [isConnected, account]);
 
   // Track credit score updates
   useEffect(() => {
@@ -97,20 +114,72 @@ export default function Dashboard() {
       // Check if we already have a credit score activity for this score
       const hasCreditScoreActivity = activities.some(activity => 
         activity.type === 'credit_score_updated' && 
-        activity.description.includes(creditScore.score)
+        activity.description.includes(`Score: ${creditScore.creditScore}`)
       );
       
       if (!hasCreditScoreActivity) {
         addActivity({
           type: 'credit_score_updated',
           title: 'Credit Score Updated',
-          description: `Your credit score was calculated: ${creditScore.score}`,
-          icon: 'TrendingUp',
+          description: `New credit score generated: ${creditScore.creditScore}/1000 (${creditScore.riskLevel} Risk)`,
+          icon: 'BarChart3',
+          color: 'green',
+        });
+      }
+    }
+  }, [creditScore, account]);
+
+  // Track real-time connection status
+  useEffect(() => {
+    if (isRealTimeConnected) {
+      const hasRealTimeActivity = activities.some(activity => 
+        activity.type === 'real_time_update' && 
+        activity.title === 'Real-time Updates Connected'
+      );
+      
+      if (!hasRealTimeActivity) {
+        addActivity({
+          type: 'real_time_update',
+          title: 'Real-time Updates Connected',
+          description: 'Connected to 0G Data Pipeline for live credit score updates',
+          icon: 'Wifi',
+          color: 'cyan',
+        });
+      }
+    }
+  }, [isRealTimeConnected]);
+
+  // Track 0G service status changes
+  useEffect(() => {
+    if (zeroGStatus.initialized && zeroGStatus.pipelineConnected) {
+      const hasZeroGActivity = activities.some(activity => 
+        activity.type === 'real_time_update' && 
+        activity.title === '0G Services Connected'
+      );
+      
+      if (!hasZeroGActivity) {
+        addActivity({
+          type: 'real_time_update',
+          title: '0G Services Connected',
+          description: 'All 0G services (Storage, Compute, Pipeline) are operational',
+          icon: 'Zap',
           color: 'purple',
         });
       }
     }
-  }, [creditScore, account, activities, addActivity]);
+  }, [zeroGStatus.initialized, zeroGStatus.pipelineConnected]);
+
+  // Add test activity function
+  const addTestActivity = () => {
+    addActivity({
+      type: 'loan_requested',
+      title: 'Loan Request Submitted',
+      description: 'Requested a loan of 2.5 ETH at 12.5% interest rate',
+      icon: 'CreditCard',
+      color: 'orange',
+    });
+    toast.success('Test activity added!');
+  };
 
   // Add demo activity when component mounts (for demonstration)
   useEffect(() => {
@@ -136,44 +205,6 @@ export default function Dashboard() {
     }
   }, [isConnected, activities, addActivity]);
 
-  // Function to manually add test activities (for development)
-  const addTestActivity = () => {
-    addActivity({
-      type: 'loan_requested',
-      title: 'Test Loan Requested',
-      description: 'Manual test activity added for demonstration',
-      icon: 'DollarSign',
-      color: 'orange',
-    });
-  };
-
-  useEffect(() => {
-    if (account) {
-      const fetchCreditScore = async () => {
-        setIsLoading(true);
-        try {
-          const response = await fetch(`${API_PREFIX}/getCreditScore?wallet=${account}`);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          // API returns { wallet, creditScore, walletData, ... }
-          const data: { wallet: string; creditScore: 'High' | 'Medium' | 'Low' } = await response.json();
-          setCreditScore({ wallet: data.wallet, score: data.creditScore });
-        } catch (error) {
-          console.error('Error fetching credit score:', error);
-          toast.error('Failed to fetch credit score.');
-          setCreditScore(null);
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchCreditScore();
-    } else {
-      setIsLoading(false);
-      setCreditScore(null);
-    }
-  }, [account]);
-
   const getScoreColor = (score: 'High' | 'Medium' | 'Low' | undefined) => {
     switch (score) {
       case 'High':
@@ -195,6 +226,10 @@ export default function Dashboard() {
       case 'CheckCircle': return CheckCircle;
       case 'DollarSign': return DollarSign;
       case 'Activity': return Activity;
+      case 'BarChart3': return BarChart3;
+      case 'Wifi': return Wifi;
+      case 'Zap': return Zap;
+      case 'CreditCard': return CreditCard;
       default: return Activity;
     }
   };
@@ -237,14 +272,9 @@ export default function Dashboard() {
                 <p className="text-gray-300 mb-6 text-lg">
                   To access your personalized dashboard, you need to connect your MetaMask or any Web3 wallet first.
                 </p>
-                <button
-                  onClick={connectWallet}
-                  className="btn-primary text-lg px-8 py-4 inline-flex items-center gap-3 hover:scale-105 transition-transform"
-                >
-                  <Wallet className="w-6 h-6" />
-                  Connect Wallet
-                  <ArrowRight className="w-5 h-5" />
-                </button>
+                <div className="flex justify-center mb-4 hover-lift">
+                  <ConnectButton />
+                </div>
                 <p className="text-sm text-gray-400 mt-4">
                   Don't have a wallet? <a href="https://metamask.io" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Install MetaMask</a>
                 </p>
@@ -443,10 +473,37 @@ export default function Dashboard() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-white mb-2">Welcome back!</h1>
           <p className="text-gray-300 text-lg">Manage your loans and track your financial health</p>
+          
+          {/* Mock Mode Notice */}
+          <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-5 h-5 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                <span className="text-yellow-500 text-xs font-bold">!</span>
+              </div>
+              <span className="text-yellow-400 font-medium">Mock Mode Active</span>
+            </div>
+            <p className="text-yellow-200 text-sm">
+              0G services are temporarily disabled to prevent crashes. Using mock data for demonstration.
+            </p>
+          </div>
         </div>
 
         {isLoading ? (
           <div className="text-center text-gray-400 text-lg">Loading dashboard data...</div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-3xl text-red-400">!</span>
+            </div>
+            <h3 className="text-xl font-medium text-white mb-2">Failed to Load Dashboard</h3>
+            <p className="text-gray-400 mb-6">{error}</p>
+            <button 
+              onClick={refresh}
+              className="px-6 py-3 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
         ) : (
           <>
             {/* Stats Overview Cards */}
@@ -471,9 +528,33 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-green-300">Credit Score</p>
-                    <p className="text-2xl font-bold text-white">
-                      {creditScore?.score || 'N/A'}
-                    </p>
+                    {isLoading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-sm text-green-200">Loading...</span>
+                      </div>
+                    ) : error ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-400 text-sm">Error</span>
+                        <button 
+                          onClick={refresh}
+                          className="text-xs text-green-400 hover:text-green-300 underline"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-2xl font-bold text-white">
+                          {creditScore?.riskLevel || 'N/A'}
+                        </p>
+                        {creditScore && (
+                          <p className="text-sm text-green-200">
+                            {creditScore.creditScore}/1000
+                          </p>
+                        )}
+                      </>
+                    )}
                   </div>
                   <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
                     <TrendingUp className="w-6 h-6 text-green-500" />
@@ -500,13 +581,23 @@ export default function Dashboard() {
               <div className="card p-6 bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/20">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-orange-300">Activities</p>
-                    <p className="text-2xl font-bold text-white">
-                      {activities.length}
+                    <p className="text-sm font-medium text-orange-300">0G Status</p>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${zeroGStatus.pipelineConnected ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></div>
+                      <span className="text-sm text-white">
+                        {zeroGStatus.pipelineConnected ? 'Connected' : 'Disconnected'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-orange-200 mt-1">
+                      {zeroGStatus.subscriberCount} subscribers
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                    <Activity className="w-6 h-6 text-orange-500" />
+                    {zeroGStatus.pipelineConnected ? (
+                      <Wifi className="w-6 h-6 text-orange-500" />
+                    ) : (
+                      <WifiOff className="w-6 h-6 text-orange-500" />
+                    )}
                   </div>
                 </div>
               </div>
@@ -521,6 +612,12 @@ export default function Dashboard() {
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
                     <span className="text-sm text-green-400">Connected</span>
+                    {isRealTimeConnected && (
+                      <>
+                        <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
+                        <span className="text-sm text-cyan-400">Real-time</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 
@@ -555,7 +652,7 @@ export default function Dashboard() {
                         <span className="text-sm text-gray-400">Transaction Count</span>
                       </div>
                       <p className="text-xl font-bold text-white">
-                        {creditScore?.score ? '15' : 'N/A'}
+                        {creditScore?.walletData?.transactionCount || 'N/A'}
                       </p>
                     </div>
 
@@ -565,7 +662,9 @@ export default function Dashboard() {
                         <span className="text-sm text-gray-400">Last Activity</span>
                       </div>
                       <p className="text-xl font-bold text-white">
-                        {activities.length > 0 ? formatTimeAgo(activities[0].timestamp) : 'Just now'}
+                        {creditScore?.walletData?.lastActivity ? 
+                          formatTimeAgo(new Date(creditScore.walletData.lastActivity)) : 
+                          activities.length > 0 ? formatTimeAgo(activities[0].timestamp) : 'Just now'}
                       </p>
                     </div>
 
@@ -583,10 +682,30 @@ export default function Dashboard() {
               {/* Credit Score Card */}
               <div className="card p-6 flex flex-col items-center justify-center text-center">
                 <h2 className="text-2xl font-semibold text-white mb-6">Your Credit Score</h2>
-                {creditScore ? (
+                {isLoading ? (
+                  <div className="space-y-4">
+                    <div className="w-24 h-24 bg-gray-600 rounded-full flex items-center justify-center">
+                      <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <p className="text-gray-400">Loading credit score...</p>
+                  </div>
+                ) : error ? (
+                  <div className="space-y-4">
+                    <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center">
+                      <span className="text-2xl font-bold text-red-400">!</span>
+                    </div>
+                    <p className="text-red-400 mb-4">Failed to load credit score</p>
+                    <button 
+                      onClick={refresh}
+                      className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : creditScore ? (
                   <>
-                    <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 ${getScoreColor(creditScore.score)}`}>
-                      <span className="text-2xl font-bold text-white">{creditScore.score}</span>
+                    <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-4 ${getScoreColor(creditScore.riskLevel)}`}>
+                      <span className="text-2xl font-bold text-white">{creditScore.riskLevel}</span>
                     </div>
                     <p className="text-gray-300 mb-4">
                       Based on your on-chain activity and balance.
@@ -594,20 +713,30 @@ export default function Dashboard() {
                     <div className="w-full bg-gray-700 rounded-full h-2 mb-4">
                       <div 
                         className={`h-2 rounded-full transition-all duration-500 ${
-                          creditScore.score === 'High' ? 'bg-green-500' : 
-                          creditScore.score === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
+                          creditScore.riskLevel === 'High' ? 'bg-green-500' : 
+                          creditScore.riskLevel === 'Medium' ? 'bg-yellow-500' : 'bg-red-500'
                         }`}
                         style={{
-                          width: creditScore.score === 'High' ? '90%' : 
-                                 creditScore.score === 'Medium' ? '60%' : '30%'
+                          width: creditScore.riskLevel === 'High' ? '90%' : 
+                                 creditScore.riskLevel === 'Medium' ? '60%' : '30%'
                         }}
                       ></div>
                     </div>
                     <div className="text-sm text-gray-400">
-                      {creditScore.score === 'High' && 'Excellent credit standing'}
-                      {creditScore.score === 'Medium' && 'Good credit standing'}
-                      {creditScore.score === 'Low' && 'Credit improvement needed'}
+                      {creditScore.riskLevel === 'High' && 'Excellent credit standing'}
+                      {creditScore.riskLevel === 'Medium' && 'Good credit standing'}
+                      {creditScore.riskLevel === 'Low' && 'Credit improvement needed'}
                     </div>
+                    {creditScore.confidence && (
+                      <div className="mt-4 text-xs text-gray-500">
+                        Confidence: {(creditScore.confidence * 100).toFixed(1)}%
+                      </div>
+                    )}
+                    {creditScore.poweredBy && (
+                      <div className="mt-4 text-xs text-gray-500">
+                        Powered by: {creditScore.poweredBy}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <div className="space-y-4">
@@ -616,6 +745,64 @@ export default function Dashboard() {
                     </div>
                     <p className="text-gray-400">Credit score not available.</p>
                     <p className="text-sm text-gray-500">Connect your wallet to get started.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 0G Services Status */}
+            <div className="mt-8">
+              <div className="card p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-semibold text-white">0G Services Status</h2>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${zeroGStatus.initialized ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></div>
+                    <span className="text-sm text-gray-400">
+                      {zeroGStatus.initialized ? 'All Services Operational' : 'Services Unavailable'}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Storage Service */}
+                  <div className="p-4 bg-white/5 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-white">0G Storage</h3>
+                      <div className={`w-2 h-2 rounded-full ${zeroGStatus.initialized ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                    </div>
+                    <p className="text-xs text-gray-400">User data storage</p>
+                  </div>
+
+                  {/* Compute Service */}
+                  <div className="p-4 bg-white/5 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-white">0G Compute</h3>
+                      <div className={`w-2 h-2 rounded-full ${zeroGStatus.initialized ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                    </div>
+                    <p className="text-xs text-gray-400">AI/ML inference</p>
+                  </div>
+
+                  {/* Pipeline Service */}
+                  <div className="p-4 bg-white/5 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium text-white">0G Pipeline</h3>
+                      <div className={`w-2 h-2 rounded-full ${zeroGStatus.pipelineConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                    </div>
+                    <p className="text-xs text-gray-400">Real-time updates</p>
+                  </div>
+                </div>
+
+                {!zeroGStatus.initialized && (
+                  <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-5 h-5 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                        <span className="text-yellow-500 text-xs font-bold">!</span>
+                      </div>
+                      <span className="text-yellow-400 font-medium">0G Services Unavailable</span>
+                    </div>
+                    <p className="text-yellow-200 text-sm">
+                      Some 0G services are currently unavailable. Credit scoring may be limited. Please try again later.
+                    </p>
                   </div>
                 )}
               </div>
@@ -749,13 +936,22 @@ export default function Dashboard() {
               <div className="card p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-semibold text-white">Recent Activity</h2>
-                  <button
-                    onClick={addTestActivity}
-                    className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-lg text-sm hover:bg-orange-500/30 transition-colors"
-                    title="Add test activity for demonstration"
-                  >
-                    + Test
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={refresh}
+                      className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm hover:bg-cyan-500/30 transition-colors"
+                      title="Refresh credit score"
+                    >
+                      Refresh Score
+                    </button>
+                    <button
+                      onClick={addTestActivity}
+                      className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-lg text-sm hover:bg-orange-500/30 transition-colors"
+                      title="Add test activity for demonstration"
+                    >
+                      + Test
+                    </button>
+                  </div>
                 </div>
                 {activities.length > 0 ? (
                   <div className="space-y-4">
