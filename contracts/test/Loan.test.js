@@ -6,14 +6,13 @@ describe("Credora Loan Contract", function () {
   let owner;
   let borrower;
   let addr1;
-  let addr2;
 
   beforeEach(async function () {
-    [owner, borrower, addr1, addr2] = await ethers.getSigners();
-    
+    [owner, borrower, addr1] = await ethers.getSigners();
+
     const Loan = await ethers.getContractFactory("Loan");
     loan = await Loan.deploy();
-    await loan.deployed();
+    await loan.waitForDeployment();
   });
 
   describe("Deployment", function () {
@@ -22,79 +21,72 @@ describe("Credora Loan Contract", function () {
     });
 
     it("Should have correct constants", async function () {
-      expect(await loan.INTEREST_RATE()).to.equal(5);
-      expect(await loan.LOAN_DURATION()).to.equal(30 * 24 * 60 * 60); // 30 days in seconds
-      expect(await loan.MIN_BALANCE_THRESHOLD()).to.equal(ethers.utils.parseEther("0.5"));
-      expect(await loan.MIN_TX_COUNT()).to.equal(10);
+      expect(await loan.INTEREST_RATE()).to.equal(5n);
+      expect(await loan.LOAN_DURATION()).to.equal(30n * 24n * 60n * 60n);
+      expect(await loan.MIN_BALANCE_THRESHOLD()).to.equal(ethers.parseEther("0.5"));
+      expect(await loan.MIN_TX_COUNT()).to.equal(10n);
     });
   });
 
   describe("Loan Requests", function () {
-    it("Should reject loan request with insufficient balance", async function () {
-      const amount = ethers.utils.parseEther("1.0");
-      
+    it("Should reject loan request with insufficient deposit", async function () {
+      const amount = ethers.parseEther("1.0");
+
       await expect(
-        loan.connect(borrower).requestLoan(amount, { value: ethers.utils.parseEther("0.1") })
+        loan.connect(borrower).requestLoan(amount, { value: ethers.parseEther("0.1") })
       ).to.be.revertedWith("Insufficient balance for loan approval");
     });
 
     it("Should reject loan request with insufficient transaction count", async function () {
-      const amount = ethers.utils.parseEther("1.0");
-      
-      // Set low transaction count
+      const amount = ethers.parseEther("1.0");
+
       await loan.setBorrowerTxCount(borrower.address, 5);
-      
+
       await expect(
-        loan.connect(borrower).requestLoan(amount, { value: ethers.utils.parseEther("0.6") })
+        loan.connect(borrower).requestLoan(amount, { value: ethers.parseEther("0.6") })
       ).to.be.revertedWith("Loan request denied - eligibility criteria not met");
     });
 
     it("Should approve loan when all criteria are met", async function () {
-      const amount = ethers.utils.parseEther("1.0");
-      
-      // Set sufficient transaction count
+      const amount = ethers.parseEther("1.0");
+
       await loan.setBorrowerTxCount(borrower.address, 15);
-      
+
       await expect(
-        loan.connect(borrower).requestLoan(amount, { value: ethers.utils.parseEther("0.6") })
+        loan.connect(borrower).requestLoan(amount, { value: ethers.parseEther("0.6") })
       ).to.emit(loan, "LoanApproved");
-      
+
       const loanInfo = await loan.getLoanInfo(borrower.address);
       expect(loanInfo.amount).to.equal(amount);
-      expect(loanInfo.state).to.equal(1); // Active state
+      expect(loanInfo.state).to.equal(1n); // Active
     });
   });
 
   describe("Loan Repayment", function () {
     beforeEach(async function () {
-      // Set up an active loan
       await loan.setBorrowerTxCount(borrower.address, 15);
       await loan.connect(borrower).requestLoan(
-        ethers.utils.parseEther("1.0"), 
-        { value: ethers.utils.parseEther("0.6") }
+        ethers.parseEther("1.0"),
+        { value: ethers.parseEther("0.6") }
       );
     });
 
     it("Should allow loan repayment with correct amount", async function () {
       const loanInfo = await loan.getLoanInfo(borrower.address);
-      const totalAmount = loanInfo.amount.add(
-        loanInfo.amount.mul(5).div(100) // 5% interest
-      );
-      
+      const totalAmount = loanInfo.amount + (loanInfo.amount * 5n) / 100n;
+
       await expect(
         loan.connect(borrower).repayLoan({ value: totalAmount })
       ).to.emit(loan, "LoanRepaid");
-      
+
       const updatedLoanInfo = await loan.getLoanInfo(borrower.address);
-      expect(updatedLoanInfo.exists).to.be.false;
+      expect(updatedLoanInfo.exists).to.equal(false);
     });
 
     it("Should reject repayment from non-borrower", async function () {
       const loanInfo = await loan.getLoanInfo(borrower.address);
-      const totalAmount = loanInfo.amount.add(
-        loanInfo.amount.mul(5).div(100)
-      );
-      
+      const totalAmount = loanInfo.amount + (loanInfo.amount * 5n) / 100n;
+
       await expect(
         loan.connect(addr1).repayLoan({ value: totalAmount })
       ).to.be.revertedWith("No active loan found");
@@ -104,7 +96,7 @@ describe("Credora Loan Contract", function () {
   describe("Owner Functions", function () {
     it("Should allow owner to set transaction count", async function () {
       await loan.setBorrowerTxCount(borrower.address, 20);
-      expect(await loan.getBorrowerTxCount(borrower.address)).to.equal(20);
+      expect(await loan.getBorrowerTxCount(borrower.address)).to.equal(20n);
     });
 
     it("Should not allow non-owner to set transaction count", async function () {

@@ -8,6 +8,8 @@
     "test": "hardhat test",
     "deploy:goerli": "hardhat run scripts/deploy.js --network goerli",
     "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:galileo": "hardhat run scripts/deploy.js --network galileo",
+    "bootstrap:tx-count": "hardhat run scripts/bootstrap-tx-count.js --network galileo",
     "deploy:localhost": "hardhat run scripts/deploy.js --network localhost"
   },
   "dependencies": {
