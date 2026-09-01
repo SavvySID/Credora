@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../indexer';
+import { IndexerUnavailableError, loadLoans } from '../indexer';
 import { cacheFor, methodGuard, readAddress, unavailable } from '../http';
 
 export async function handle(req: VercelRequest, res: VercelResponse) {
@@ -9,7 +9,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
   if (!address) return;
 
   try {
-    const result = await indexerClient.loans(address);
+    const result = await loadLoans(address);
     cacheFor(res, 10);
     res.status(200).json(result);
   } catch (error) {

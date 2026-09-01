@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../indexer';
+import { IndexerUnavailableError, indexerClient, loadFeatures } from '../indexer';
 import { SCORING_MODEL, describeMethodology, scoreWallet } from '../scoring';
 import { explainScore } from '../compute';
 import { methodGuard, noStore, readAddress, unavailable } from '../http';
@@ -15,7 +15,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
 
   let features;
   try {
-    features = await indexerClient.features(wallet);
+    features = await loadFeatures(wallet);
   } catch (error) {
     if (error instanceof IndexerUnavailableError) {
       unavailable(res, 'Credora indexer', error.message);

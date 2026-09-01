@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../indexer';
+import { IndexerUnavailableError, loadRecords } from '../indexer';
 import { cacheFor, methodGuard, readAddress, unavailable } from '../http';
 
 export async function handle(req: VercelRequest, res: VercelResponse) {
@@ -18,7 +18,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
   const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 500) : 100;
 
   try {
-    const result = await indexerClient.records(address, eventTypes, limit);
+    const result = await loadRecords(address, eventTypes, limit);
     cacheFor(res, 10);
     res.status(200).json(result);
   } catch (error) {

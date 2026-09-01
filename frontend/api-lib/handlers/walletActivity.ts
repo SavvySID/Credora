@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../indexer';
+import { IndexerUnavailableError, loadWallet } from '../indexer';
 import { cacheFor, methodGuard, readAddress, unavailable } from '../http';
 
 /**
@@ -13,7 +13,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
   if (!address) return;
 
   try {
-    const snapshot = await indexerClient.wallet(address, req.query.refresh === 'true');
+    const snapshot = await loadWallet(address, req.query.refresh === 'true');
     cacheFor(res, 15);
     res.status(200).json(snapshot);
   } catch (error) {

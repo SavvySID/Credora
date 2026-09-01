@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient, type RecordDto } from '../indexer';
+import { IndexerUnavailableError, indexerConfigured, loadFeatures, loadLoans, loadRecords, type RecordDto } from '../indexer';
 import { describeMethodology, scoreWallet } from '../scoring';
 import { aiByAnalysisFromRecords, getCachedAiAssessment, type AiAssessmentView } from '../riskEngine';
 import { ANALYSIS_TYPES, type AnalysisType } from '../analysis';
@@ -69,9 +69,9 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
   let records;
   try {
     [features, loans, records] = await Promise.all([
-      indexerClient.features(wallet),
-      indexerClient.loans(wallet),
-      indexerClient.records(wallet, ['credit_assessment', 'ai_risk_assessment'], 60),
+      loadFeatures(wallet),
+      loadLoans(wallet),
+      loadRecords(wallet, ['credit_assessment', 'ai_risk_assessment'], 60),
     ]);
   } catch (error) {
     if (error instanceof IndexerUnavailableError) {
@@ -87,11 +87,15 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
 
   const assessments = records.records;
   const byType = aiByAnalysisFromRecords(assessments, hash);
-  if (hash) {
+  if (hash && indexerConfigured().ok) {
     for (const type of ANALYSIS_TYPES) {
       if (byType[type]) continue;
-      const cached = await getCachedAiAssessment(wallet, hash, type);
-      if (cached) byType[type] = cached;
+      try {
+        const cached = await getCachedAiAssessment(wallet, hash, type);
+        if (cached) byType[type] = cached;
+      } catch (error) {
+        if (!(error instanceof IndexerUnavailableError)) throw error;
+      }
     }
   }
 

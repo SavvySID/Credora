@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../indexer';
+import { IndexerUnavailableError, indexerClient, indexerConfigured, loadFeatures } from '../indexer';
 import { scoreWallet } from '../scoring';
 import { aiFromRecordList, evaluateAiRisk, getCachedAiAssessment } from '../riskEngine';
 import { parseAnalysisType } from '../analysis';
@@ -28,7 +28,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
 
   let features;
   try {
-    features = await indexerClient.features(wallet);
+    features = await loadFeatures(wallet);
   } catch (error) {
     if (error instanceof IndexerUnavailableError) {
       unavailable(res, 'Credora indexer', error.message);
@@ -55,7 +55,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const cached = await getCachedAiAssessment(wallet, hash, analysisType);
+    const cached = indexerConfigured().ok ? await getCachedAiAssessment(wallet, hash, analysisType) : null;
     if (cached) {
       res.status(200).json({
         wallet,

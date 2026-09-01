@@ -310,3 +310,59 @@ export const indexerClient = {
 
   analytics: () => request<Record<string, unknown>>('/analytics/summary'),
 };
+
+async function fromIndexerOrGalileo<T>(indexerCall: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+  if (!indexerConfigured().ok) return fallback();
+  try {
+    return await indexerCall();
+  } catch (error) {
+    if (error instanceof IndexerUnavailableError) return fallback();
+    throw error;
+  }
+}
+
+export async function loadFeatures(wallet: string): Promise<FeaturesDto> {
+  const { fetchGalileoFeatures, GalileoUnavailableError } = await import('./galileo');
+  try {
+    return await fromIndexerOrGalileo(
+      () => indexerClient.features(wallet),
+      () => fetchGalileoFeatures(wallet),
+    );
+  } catch (error) {
+    if (error instanceof GalileoUnavailableError) {
+      throw new IndexerUnavailableError(error.message);
+    }
+    throw error;
+  }
+}
+
+export async function loadWallet(address: string, refresh = false): Promise<WalletSnapshotDto> {
+  const { fetchGalileoWallet, GalileoUnavailableError } = await import('./galileo');
+  try {
+    return await fromIndexerOrGalileo(
+      () => indexerClient.wallet(address, refresh),
+      () => fetchGalileoWallet(address),
+    );
+  } catch (error) {
+    if (error instanceof GalileoUnavailableError) {
+      throw new IndexerUnavailableError(error.message);
+    }
+    throw error;
+  }
+}
+
+export async function loadLoans(address: string) {
+  const { emptyLoanView } = await import('./galileo');
+  return fromIndexerOrGalileo(
+    () => indexerClient.loans(address),
+    async () => emptyLoanView,
+  );
+}
+
+export async function loadRecords(address: string, eventTypes?: string[], limit = 100) {
+  const { emptyRecords } = await import('./galileo');
+  return fromIndexerOrGalileo(
+    () => indexerClient.records(address, eventTypes, limit),
+    async () => emptyRecords,
+  );
+}

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IndexerUnavailableError, indexerClient, indexerConfigured } from '../indexer';
 import { probeCompute } from '../computeProbe';
+import { probeGalileoChain, probeGalileoExplorer } from '../galileo';
 import { methodGuard, noStore } from '../http';
 
 /**
@@ -12,7 +13,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
 
   const configured = indexerConfigured();
 
-  const [indexerHealth, compute] = await Promise.all([
+  const [indexerHealth, compute, chainProbe, explorerProbe] = await Promise.all([
     configured.ok
       ? indexerClient.health().catch((error: unknown) => ({
           __error:
@@ -20,6 +21,8 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
         }))
       : Promise.resolve({ __error: configured.reason }),
     probeCompute(),
+    probeGalileoChain(),
+    probeGalileoExplorer(),
   ]);
 
   const indexerError = (indexerHealth as { __error?: string }).__error ?? null;
@@ -43,11 +46,13 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
     },
     chain: {
       name: '0G Chain',
-      online: upstream?.chain?.reachable ?? false,
-      chainId: upstream?.chain?.chainId ?? null,
-      blockNumber: upstream?.chain?.blockNumber ?? null,
-      chainIdMatches: upstream?.chain?.chainIdMatches ?? null,
-      detail: upstream?.chain?.reachable === false ? 'RPC unreachable' : null,
+      online: upstream?.chain?.reachable ?? chainProbe.reachable,
+      chainId: upstream?.chain?.chainId ?? chainProbe.chainId,
+      blockNumber: upstream?.chain?.blockNumber ?? chainProbe.blockNumber,
+      chainIdMatches: upstream?.chain?.chainIdMatches ?? chainProbe.chainIdMatches,
+      detail: (upstream?.chain?.reachable ?? chainProbe.reachable)
+        ? null
+        : (upstream?.chain ? 'RPC unreachable' : chainProbe.error),
     },
     storage: {
       name: '0G Storage',
@@ -69,8 +74,10 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
     },
     explorer: {
       name: '0G Chain Scan',
-      online: upstream?.explorer?.reachable ?? false,
-      detail: upstream?.explorer?.reachable === false ? 'Explorer API unreachable' : null,
+      online: upstream?.explorer?.reachable ?? explorerProbe.reachable,
+      detail: (upstream?.explorer?.reachable ?? explorerProbe.reachable)
+        ? null
+        : explorerProbe.error ?? 'Explorer API unreachable',
     },
   };
 
