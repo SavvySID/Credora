@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../../lib/indexer';
-import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../lib/http';
+import { IndexerUnavailableError, indexerClient } from '../../../api-lib/indexer';
+import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../../api-lib/http';
 
 /**
  * Credora records for a wallet, each carrying its real verification state.

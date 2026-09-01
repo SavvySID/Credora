@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from './lib/indexer';
-import { scoreWallet } from './lib/scoring';
-import { aiFromRecordList, evaluateAiRisk, getCachedAiAssessment } from './lib/riskEngine';
-import { parseAnalysisType } from './lib/analysis';
-import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from './lib/http';
+import { IndexerUnavailableError, indexerClient } from '../api-lib/indexer';
+import { scoreWallet } from '../api-lib/scoring';
+import { aiFromRecordList, evaluateAiRisk, getCachedAiAssessment } from '../api-lib/riskEngine';
+import { parseAnalysisType } from '../api-lib/analysis';
+import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from '../api-lib/http';
 
 function readRequestedAnalysis(req: VercelRequest) {
   const fromQuery = Array.isArray(req.query.analysisType)

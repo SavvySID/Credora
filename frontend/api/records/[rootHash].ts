@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../lib/indexer';
-import { cacheFor, methodGuard, noStore, unavailable, withApiHandler } from '../lib/http';
+import { IndexerUnavailableError, indexerClient } from '../../api-lib/indexer';
+import { cacheFor, methodGuard, noStore, unavailable, withApiHandler } from '../../api-lib/http';
 
 /**
  * Retrieves a Credora record from 0G Storage by root hash and verifies it by

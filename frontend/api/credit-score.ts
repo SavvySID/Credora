@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from './lib/indexer';
-import { SCORING_MODEL, describeMethodology, scoreWallet } from './lib/scoring';
-import { explainScore } from './lib/compute';
-import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from './lib/http';
+import { IndexerUnavailableError, indexerClient } from '../api-lib/indexer';
+import { SCORING_MODEL, describeMethodology, scoreWallet } from '../api-lib/scoring';
+import { explainScore } from '../api-lib/compute';
+import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from '../api-lib/http';
 
 /**
  * Deterministic Credora score. 0G Compute is not used unless explain=true.

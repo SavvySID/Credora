@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../../lib/indexer';
-import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../lib/http';
+import { IndexerUnavailableError, indexerClient } from '../../../api-lib/indexer';
+import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../../api-lib/http';
 
 /**
  * Real wallet state from 0G Galileo: balance and nonce from the chain RPC,

@@ -16,6 +16,6 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true
   },
-  "include": ["./**/*.ts"],
-  "exclude": ["./**/*.test.ts"]
+  "include": ["./**/*.ts", "../api-lib/**/*.ts"],
+  "exclude": ["./**/*.test.ts", "../api-lib/**/*.test.ts"]
 }
