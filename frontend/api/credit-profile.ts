@@ -3,7 +3,7 @@ import { IndexerUnavailableError, indexerClient, type RecordDto } from './_lib/i
 import { describeMethodology, scoreWallet } from './_lib/scoring';
 import { aiByAnalysisFromRecords, getCachedAiAssessment, type AiAssessmentView } from './_lib/riskEngine';
 import { ANALYSIS_TYPES, type AnalysisType } from './_lib/analysis';
-import { computeCapability } from './_lib/compute';
+import { computeCapability } from './_lib/computeProbe';
 import { evaluateReputation } from './_lib/reputation';
 import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from './_lib/http';
 

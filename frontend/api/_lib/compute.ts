@@ -2,6 +2,10 @@ import type { ScoreResult } from './scoring';
 import { SCORING_MODEL } from './scoring';
 import { parseAiRiskJson, completionTextFromChoice, type AiRiskOutput } from './riskSchema';
 import { ANALYSIS_FOCUS, type AnalysisType } from './analysis';
+import { computeCapability, computeEnv, computeModelId } from './computeProbe';
+
+export { computeCapability, computeModelId, probeCompute } from './computeProbe';
+export type { ComputeProbe } from './computeProbe';
 
 /**
  * 0G COMPUTE INTEGRATION
@@ -16,15 +20,6 @@ import { ANALYSIS_FOCUS, type AnalysisType } from './analysis';
  * Provision at https://pc.0g.ai -> API Keys, with `inference` permission.
  */
 
-function computeEnv() {
-  return {
-    routerUrl: process.env.ZG_COMPUTE_ROUTER_URL ?? 'https://router-api.0g.ai/v1',
-    apiKey: process.env.ZG_COMPUTE_API_KEY ?? '',
-    model: process.env.ZG_COMPUTE_MODEL ?? '',
-    timeoutMs: Number.parseInt(process.env.ZG_COMPUTE_TIMEOUT_MS ?? '25000', 10),
-  };
-}
-
 export interface NarrativeResult {
   available: boolean;
   provider: string | null;
@@ -33,25 +28,6 @@ export interface NarrativeResult {
   /** Populated when the narrative could not be produced. */
   blockedReason: string | null;
   latencyMs: number | null;
-}
-
-export function computeCapability(): { available: boolean; blockedReason: string | null } {
-  const { apiKey, model } = computeEnv();
-  if (!apiKey) {
-    return {
-      available: false,
-      blockedReason:
-        'ZG_COMPUTE_API_KEY is not set. Create an inference key at https://pc.0g.ai and fund the unified balance with 0G.',
-    };
-  }
-  if (!model) {
-    return {
-      available: false,
-      blockedReason:
-        'ZG_COMPUTE_MODEL is not set. Pick a model id from GET https://router-api.0g.ai/v1/models.',
-    };
-  }
-  return { available: true, blockedReason: null };
 }
 
 function buildPrompt(wallet: string, score: ScoreResult): string {
@@ -185,10 +161,6 @@ export async function explainScore(wallet: string, score: ScoreResult): Promise<
   } finally {
     clearTimeout(timer);
   }
-}
-
-export function computeModelId(): string {
-  return computeEnv().model;
 }
 
 export interface RiskInferenceResult {
@@ -353,53 +325,5 @@ async function chatCompletion(
     return { ok: false, reason, status: null };
   } finally {
     clearTimeout(timer);
-  }
-}
-
-export interface ComputeProbe {
-  reachable: boolean;
-  configured: boolean;
-  blockedReason: string | null;
-  models: number | null;
-  error: string | null;
-}
-
-/** GET /v1/models needs no auth, so reachability is testable without a key. */
-export async function probeCompute(): Promise<ComputeProbe> {
-  const capability = computeCapability();
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10_000);
-    const response = await fetch(`${computeEnv().routerUrl}/models`, { signal: controller.signal });
-    clearTimeout(timer);
-
-    if (!response.ok) {
-      return {
-        reachable: false,
-        configured: capability.available,
-        blockedReason: capability.blockedReason,
-        models: null,
-        error: `Router responded ${response.status}`,
-      };
-    }
-
-    const payload = (await response.json()) as { data?: unknown[] };
-
-    return {
-      reachable: true,
-      configured: capability.available,
-      blockedReason: capability.blockedReason,
-      models: Array.isArray(payload.data) ? payload.data.length : null,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      reachable: false,
-      configured: capability.available,
-      blockedReason: capability.blockedReason,
-      models: null,
-      error: error instanceof Error ? error.message : String(error),
-    };
   }
 }

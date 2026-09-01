@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IndexerUnavailableError, indexerClient, indexerConfigured } from './_lib/indexer';
-import { probeCompute } from './_lib/compute';
+import { probeCompute } from './_lib/computeProbe';
 import { methodGuard, noStore, withApiHandler } from './_lib/http';
 
 /**
