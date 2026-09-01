@@ -1,11 +1,11 @@
-import { ZERO_G_CONFIG, zeroGPipeline } from './0g-config';
+import { publicConfig } from './0g-config';
 
 export interface PipelineEvent {
   type: string;
   wallet: string;
   timestamp: string;
-  data: any;
-  metadata?: Record<string, any>;
+  data: unknown;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreditScoreUpdateEvent extends PipelineEvent {
@@ -14,7 +14,7 @@ export interface CreditScoreUpdateEvent extends PipelineEvent {
     creditScore: number;
     riskLevel: 'Low' | 'Medium' | 'High';
     confidence: number;
-    factors: any[];
+    factors: unknown[];
   };
 }
 
@@ -41,289 +41,273 @@ export interface LendingUpdateEvent extends PipelineEvent {
 
 export type PipelineEventType = CreditScoreUpdateEvent | TransactionUpdateEvent | LendingUpdateEvent;
 
+type AnyHandler = (event: PipelineEventType) => void;
+
+/**
+ * Credora's own event stream (SSE from the indexer worker).
+ *
+ * There is no 0G Pipeline product. This service keeps the previous subscribe
+ * surface so existing contexts do not change, but the transport is our indexer.
+ *
+ * Browser publish methods return false: writes originate from chain events
+ * processed by the worker, not from the client.
+ */
 export class ZeroGPipelineService {
   private static instance: ZeroGPipelineService;
-  private subscribers: Map<string, Set<(event: PipelineEventType) => void>> = new Map();
-  private isConnected: boolean = false;
-  
+  private subscribers: Map<string, Set<AnyHandler>> = new Map();
+  private source: EventSource | null = null;
+  private watchedWallet: string | null = null;
+  private isConnected = false;
+
   private constructor() {}
-  
+
   public static getInstance(): ZeroGPipelineService {
     if (!ZeroGPipelineService.instance) {
       ZeroGPipelineService.instance = new ZeroGPipelineService();
     }
     return ZeroGPipelineService.instance;
   }
-  
-  /**
-   * Initialize the pipeline connection
-   */
+
   async initialize(): Promise<boolean> {
-    try {
-      console.log('Initializing 0G Pipeline connection...');
-      
-      // Subscribe to default channels
-      await this.subscribeToChannel(ZERO_G_CONFIG.streaming.creditScoreUpdates);
-      await this.subscribeToChannel(ZERO_G_CONFIG.streaming.transactionUpdates);
-      await this.subscribeToChannel(ZERO_G_CONFIG.streaming.lendingUpdates);
-      
+    return this.isConnected;
+  }
+
+  async subscribeToChannel(_channel: string): Promise<void> {
+    // Channels are not a 0G construct. The SSE endpoint is filtered by wallet.
+  }
+
+  private ensureStream(walletAddress: string): void {
+    if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
+    if (this.source && this.watchedWallet === walletAddress.toLowerCase()) return;
+
+    this.disconnectStream();
+    this.watchedWallet = walletAddress.toLowerCase();
+
+    const url = `${publicConfig.streamUrl}?wallet=${encodeURIComponent(this.watchedWallet)}`;
+    const source = new EventSource(url);
+    this.source = source;
+
+    source.onopen = () => {
       this.isConnected = true;
-      console.log('0G Pipeline initialized successfully');
-      return true;
-      
-    } catch (error) {
-      console.error('Failed to initialize 0G Pipeline:', error);
+    };
+
+    source.onerror = () => {
       this.isConnected = false;
-      return false;
-    }
+    };
+
+    const onMessage = (event: MessageEvent) => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(event.data) as unknown;
+      } catch {
+        return;
+      }
+
+      const typed = normalizeStreamEvent(parsed);
+      if (typed) this.handleEvent(typed);
+    };
+
+    source.addEventListener('record', onMessage);
+    source.onmessage = onMessage;
   }
-  
-  /**
-   * Subscribe to a specific channel
-   */
-  async subscribeToChannel(channel: string): Promise<void> {
-    try {
-      console.log(`Subscribing to 0G Pipeline channel: ${channel}`);
-      
-      zeroGPipeline.subscribe(channel, (event: PipelineEventType) => {
-        this.handleEvent(event);
-      });
-      
-    } catch (error) {
-      console.error(`Failed to subscribe to channel ${channel}:`, error);
-      throw error;
-    }
-  }
-  
-  /**
-   * Subscribe to credit score updates for a specific wallet
-   */
+
   subscribeToCreditScoreUpdates(
-    walletAddress: string, 
-    callback: (event: CreditScoreUpdateEvent) => void
+    walletAddress: string,
+    callback: (event: CreditScoreUpdateEvent) => void,
   ): () => void {
-    const key = `credit_score:${walletAddress}`;
-    
-    if (!this.subscribers.has(key)) {
-      this.subscribers.set(key, new Set());
-    }
-    
-    this.subscribers.get(key)!.add(callback as any);
-    
-    // Return unsubscribe function
-    return () => {
-      const subscribers = this.subscribers.get(key);
-      if (subscribers) {
-        subscribers.delete(callback as any);
-        if (subscribers.size === 0) {
-          this.subscribers.delete(key);
-        }
-      }
-    };
+    this.ensureStream(walletAddress);
+    return this.addSubscriber(`credit_score:${walletAddress.toLowerCase()}`, callback as AnyHandler);
   }
-  
-  /**
-   * Subscribe to transaction updates for a specific wallet
-   */
+
   subscribeToTransactionUpdates(
-    walletAddress: string, 
-    callback: (event: TransactionUpdateEvent) => void
+    walletAddress: string,
+    callback: (event: TransactionUpdateEvent) => void,
   ): () => void {
-    const key = `transaction:${walletAddress}`;
-    
-    if (!this.subscribers.has(key)) {
-      this.subscribers.set(key, new Set());
-    }
-    
-    this.subscribers.get(key)!.add(callback as any);
-    
-    return () => {
-      const subscribers = this.subscribers.get(key);
-      if (subscribers) {
-        subscribers.delete(callback as any);
-        if (subscribers.size === 0) {
-          this.subscribers.delete(key);
-        }
-      }
-    };
+    this.ensureStream(walletAddress);
+    return this.addSubscriber(`transaction:${walletAddress.toLowerCase()}`, callback as AnyHandler);
   }
-  
-  /**
-   * Subscribe to lending updates for a specific wallet
-   */
+
   subscribeToLendingUpdates(
-    walletAddress: string, 
-    callback: (event: LendingUpdateEvent) => void
+    walletAddress: string,
+    callback: (event: LendingUpdateEvent) => void,
   ): () => void {
-    const key = `lending:${walletAddress}`;
-    
-    if (!this.subscribers.has(key)) {
-      this.subscribers.set(key, new Set());
-    }
-    
-    this.subscribers.get(key)!.add(callback as any);
-    
+    this.ensureStream(walletAddress);
+    return this.addSubscriber(`lending:${walletAddress.toLowerCase()}`, callback as AnyHandler);
+  }
+
+  private addSubscriber(key: string, callback: AnyHandler): () => void {
+    if (!this.subscribers.has(key)) this.subscribers.set(key, new Set());
+    this.subscribers.get(key)!.add(callback);
+
     return () => {
-      const subscribers = this.subscribers.get(key);
-      if (subscribers) {
-        subscribers.delete(callback as any);
-        if (subscribers.size === 0) {
-          this.subscribers.delete(key);
-        }
-      }
+      const bucket = this.subscribers.get(key);
+      if (!bucket) return;
+      bucket.delete(callback);
+      if (bucket.size === 0) this.subscribers.delete(key);
+      if (this.subscribers.size === 0) this.disconnectStream();
     };
   }
-  
-  /**
-   * Handle incoming pipeline events
-   */
+
   private handleEvent(event: PipelineEventType): void {
-    console.log('Received 0G Pipeline event:', event);
-    
-    // Route events to appropriate subscribers
+    const wallet = event.wallet.toLowerCase();
     switch (event.type) {
       case 'credit_score_update':
-        this.routeEventToSubscribers(`credit_score:${event.wallet}`, event);
+        this.route(`credit_score:${wallet}`, event);
         break;
       case 'transaction_update':
-        this.routeEventToSubscribers(`transaction:${event.wallet}`, event);
+        this.route(`transaction:${wallet}`, event);
         break;
       case 'lending_update':
-        this.routeEventToSubscribers(`lending:${event.wallet}`, event);
+        this.route(`lending:${wallet}`, event);
         break;
       default:
-        console.warn('Unknown event type:', event.type);
+        break;
     }
   }
-  
-  /**
-   * Route events to subscribers
-   */
-  private routeEventToSubscribers(key: string, event: PipelineEventType): void {
-    const subscribers = this.subscribers.get(key);
-    if (subscribers) {
-      subscribers.forEach(callback => {
-        try {
-          callback(event);
-        } catch (error) {
-          console.error('Error in pipeline event callback:', error);
-        }
-      });
-    }
+
+  private route(key: string, event: PipelineEventType): void {
+    this.subscribers.get(key)?.forEach((callback) => {
+      try {
+        callback(event);
+      } catch {
+        /* subscriber errors must not tear down the stream */
+      }
+    });
   }
-  
-  /**
-   * Publish an event to the pipeline
-   */
-  async publishEvent(channel: string, event: PipelineEventType): Promise<boolean> {
-    try {
-      console.log(`Publishing event to 0G Pipeline channel ${channel}:`, event);
-      
-      const result = await zeroGPipeline.publish(channel, event);
-      return result.success;
-      
-    } catch (error) {
-      console.error('Failed to publish event to pipeline:', error);
-      return false;
-    }
+
+  async publishEvent(_channel: string, _event: PipelineEventType): Promise<boolean> {
+    return false;
   }
-  
-  /**
-   * Publish credit score update
-   */
+
   async publishCreditScoreUpdate(
-    walletAddress: string, 
-    creditScore: number, 
-    riskLevel: 'Low' | 'Medium' | 'High',
-    confidence: number,
-    factors: any[]
+    _walletAddress: string,
+    _creditScore: number,
+    _riskLevel: 'Low' | 'Medium' | 'High',
+    _confidence: number,
+    _factors: unknown[],
   ): Promise<boolean> {
-    const event: CreditScoreUpdateEvent = {
-      type: 'credit_score_update',
-      wallet: walletAddress,
-      timestamp: new Date().toISOString(),
-      data: {
-        creditScore,
-        riskLevel,
-        confidence,
-        factors,
-      },
-    };
-    
-    return await this.publishEvent(ZERO_G_CONFIG.streaming.creditScoreUpdates, event);
+    return false;
   }
-  
-  /**
-   * Publish transaction update
-   */
+
   async publishTransactionUpdate(
-    walletAddress: string,
-    transactionData: {
-      hash: string;
-      from: string;
-      to: string;
-      value: string;
-      blockNumber: number;
-    }
+    _walletAddress: string,
+    _transactionData: TransactionUpdateEvent['data'],
   ): Promise<boolean> {
-    const event: TransactionUpdateEvent = {
-      type: 'transaction_update',
-      wallet: walletAddress,
-      timestamp: new Date().toISOString(),
-      data: transactionData,
-    };
-    
-    return await this.publishEvent(ZERO_G_CONFIG.streaming.transactionUpdates, event);
+    return false;
   }
-  
-  /**
-   * Publish lending update
-   */
+
   async publishLendingUpdate(
-    walletAddress: string,
-    lendingData: {
-      loanId: string;
-      status: 'active' | 'repaid' | 'defaulted';
-      amount: number;
-      action: 'created' | 'repaid' | 'defaulted';
-    }
+    _walletAddress: string,
+    _lendingData: LendingUpdateEvent['data'],
   ): Promise<boolean> {
-    const event: LendingUpdateEvent = {
-      type: 'lending_update',
-      wallet: walletAddress,
-      timestamp: new Date().toISOString(),
-      data: lendingData,
-    };
-    
-    return await this.publishEvent(ZERO_G_CONFIG.streaming.lendingUpdates, event);
+    return false;
   }
-  
-  /**
-   * Get connection status
-   */
+
   getConnectionStatus(): boolean {
     return this.isConnected;
   }
-  
-  /**
-   * Disconnect from pipeline
-   */
+
   disconnect(): void {
-    console.log('Disconnecting from 0G Pipeline...');
-    this.isConnected = false;
+    this.disconnectStream();
     this.subscribers.clear();
   }
-  
-  /**
-   * Get subscriber count for debugging
-   */
+
   getSubscriberCount(): number {
     let total = 0;
-    this.subscribers.forEach(subscribers => {
-      total += subscribers.size;
+    this.subscribers.forEach((bucket) => {
+      total += bucket.size;
     });
     return total;
   }
+
+  private disconnectStream(): void {
+    this.source?.close();
+    this.source = null;
+    this.watchedWallet = null;
+    this.isConnected = false;
+  }
+}
+
+function normalizeStreamEvent(raw: unknown): PipelineEventType | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const envelope = raw as Record<string, unknown>;
+
+  // Indexer SSE wraps Credora records as { type: 'record', wallet, payload }.
+  const record =
+    envelope.type === 'record' && envelope.payload && typeof envelope.payload === 'object'
+      ? (envelope.payload as Record<string, unknown>)
+      : envelope;
+
+  const wallet =
+    (typeof record.wallet === 'string' && record.wallet) ||
+    (typeof envelope.wallet === 'string' && envelope.wallet) ||
+    '';
+  if (!wallet) return null;
+
+  const eventType = typeof record.eventType === 'string' ? record.eventType : '';
+  const timestamp =
+    typeof record.timestamp === 'string' ? record.timestamp : new Date().toISOString();
+  const values = (record.values ?? {}) as Record<string, unknown>;
+
+  if (eventType === 'credit_assessment') {
+    return {
+      type: 'credit_score_update',
+      wallet,
+      timestamp,
+      data: {
+        creditScore: Number(values.creditScore ?? 0),
+        riskLevel: (values.riskLevel as CreditScoreUpdateEvent['data']['riskLevel']) ?? 'Low',
+        confidence: Number(values.confidence ?? 0),
+        factors: [],
+      },
+    };
+  }
+
+  if (
+    eventType === 'loan_approved' ||
+    eventType === 'loan_repaid' ||
+    eventType === 'loan_defaulted' ||
+    eventType === 'loan_requested'
+  ) {
+    return {
+      type: 'lending_update',
+      wallet,
+      timestamp,
+      data: {
+        loanId: typeof record.loanId === 'string' ? record.loanId : '',
+        status:
+          eventType === 'loan_repaid'
+            ? 'repaid'
+            : eventType === 'loan_defaulted'
+              ? 'defaulted'
+              : 'active',
+        amount: Number(values.amountWei ?? 0),
+        action:
+          eventType === 'loan_repaid'
+            ? 'repaid'
+            : eventType === 'loan_defaulted'
+              ? 'defaulted'
+              : 'created',
+      },
+    };
+  }
+
+  if (eventType === 'wallet_transaction') {
+    return {
+      type: 'transaction_update',
+      wallet,
+      timestamp,
+      data: {
+        hash: typeof record.txHash === 'string' ? record.txHash : '',
+        from: wallet,
+        to: String(values.counterparty ?? ''),
+        value: String(values.amountWei ?? '0'),
+        blockNumber: typeof record.blockNumber === 'number' ? record.blockNumber : 0,
+      },
+    };
+  }
+
+  return null;
 }
 
 export const zeroGPipelineService = ZeroGPipelineService.getInstance();
