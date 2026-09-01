@@ -2,13 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Credora - AI-Powered Decentralized Lending</title>
-    <meta name="description" content="Credora is an AI-powered decentralized lending protocol that provides fair, transparent, and data-driven credit decisions on-chain." />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/credora-mark.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#F6F5F1" />
+    <title>Credora — On-chain credit and lending</title>
+    <meta
+      name="description"
+      content="Credora is an AI-powered decentralized lending protocol delivering fair, transparent and data-driven credit decisions on-chain."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Runs before first paint so a dark-mode reload never flashes the light canvas.
+      (function () {
+        try {
+          var stored = localStorage.getItem('credora.theme');
+          var dark =
+            stored === 'dark' ||
+            ((!stored || stored === 'system') &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute('content', dark ? '#0C0E11' : '#F6F5F1');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
