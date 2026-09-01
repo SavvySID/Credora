@@ -1,195 +1,68 @@
 # Credora
 
-## 🚀 Overview
+Credora is a credit-intelligence and accounting-only lending app on **0G Galileo** (chain id 16602).
 
-Credora is an **AI-powered decentralized lending protocol** that provides fair, transparent, and data-driven credit decisions on-chain.
+Borrowers request and repay loans through the existing `Loan.sol` deployment. Credit standing comes from a **deterministic on-chain score**. AI risk is a **separate** 0G Compute assessment and never replaces that score.
 
-This is the base infrastructure:
+## What this repo is
 
-* Borrowers can request loans directly on-chain.
-* Lenders can provide funds through smart contracts.
-* A simple AI-based scoring system evaluates wallet activity before approving a loan.
+| Layer | Path | Role |
+| --- | --- | --- |
+| Contract | `contracts/Loan.sol` | Deployed on Galileo. Do not change or redeploy for current phases. |
+| Indexer | `indexer/` | Reads chain + Chain Scan, writes Credora records to 0G Storage, serves the derived index. |
+| API | `frontend/api/` | Scoring, 0G Compute risk engine, credit profile, lender, analytics. |
+| App | `frontend/` | Wallet UI (wagmi + RainbowKit). |
 
----
+Legacy `backend/` is unused for Phase 1–3.
 
-## Features
+## Features that are real
 
-* **Wallet Connect**: Borrowers connect via MetaMask.
-* **Loan Requests**: Users can request a loan amount directly from the frontend.
-* **Rule-Based Eligibility**: Borrowers must meet basic wallet conditions (e.g., minimum balance, minimum transactions).
-* **Repayment with Interest**: Borrowers can repay loans with a fixed interest rate.
-* **Basic AI Scoring (Placeholder)**:
+- Wallet connect on 0G Galileo
+- `requestLoan` / `repayLoan` against the deployed contract (accounting only; principal is not disbursed)
+- Deterministic Credora score `credora-onchain-v1` (0–1000, bands Building / Established / Excellent)
+- Indexed wallet activity from 0G Chain Scan
+- Credora records in 0G Storage; **verified** only after write → retrieve → content hash
+- Structured AI risk via 0G Compute when an inference key is configured
+- Assessment cache keyed by `wallet + sourceDataHash + eventType + model`
+- Reputation badges from indexed facts (no “AI Approved”)
+- Lender desk (lookup + indexed roster) and analytics from the index only
 
-  * Backend simulates an AI score using dummy wallet transaction data.
-  * Outputs: `High / Medium / Low` risk.
-  * Used to approve or deny loan requests.
+## What this is not
 
----
+- Not a lending pool. Credora does not fund borrowers.
+- Not dummy / placeholder AI. Missing Compute credentials yield `available: false`.
+- Loan.sol is one loan per borrower, no disbursement, no honest `LoanDefaulted` in current usage. Overdue means `dueTime` passed while the loan is still active.
 
-## 🛠️ Tech Stack
+## Quick start
 
-* **Smart Contracts**: Solidity (Hardhat/Foundry)
-* **Frontend**: React + TypeScript
-* **Wallet Integration**: MetaMask + Ethers.js
-* **Backend (AI Simulation)**: Node.js/Python service returning mock credit scores
-* **Blockchain**: Ethereum Testnet (Sepolia/Goerli recommended)
-
----
-
-## 📂 Project Structure
-
-```
-credora/
-│── contracts/        # Solidity smart contracts (Loan.sol)
-│── frontend/         # React + TypeScript frontend
-│── backend/          # AI scoring service (Node.js/Python)
-│── test/             # Smart contract tests
-│── scripts/          # Deployment scripts
-│── README.md         # Project documentation
-```
-
----
-
-## ⚙️ Installation & Setup
-
-### Prerequisites
-
-- **Node.js** (v16 or higher)
-- **npm** (v8 or higher)
-- **MetaMask** browser extension
-- **Ethereum testnet** (Goerli/Sepolia) with test ETH
-
-### 1. Clone and Setup
+See [SETUP.md](SETUP.md) for environment files and commands.
 
 ```bash
-git clone https://github.com/<your-username>/credora.git
-cd credora
-npm run install:all
+# Indexer
+cd indexer && npm install && npm run dev
+
+# App (Vite + /api middleware)
+cd frontend && npm install && npm run dev
 ```
 
-### 2. Smart Contracts
+App: http://localhost:3100  
+Indexer: http://localhost:3200
+
+## Tests
 
 ```bash
-# Navigate to contracts directory
-cd contracts
-
-# Install dependencies
-npm install
-
-# Compile contracts
-npm run compile
-
-# Run tests
-npm test
-
-# Deploy to local network (for testing)
-npx hardhat node
-npx hardhat run scripts/deploy.js --network localhost
-
-# Deploy to testnet (optional)
-# First, create .env file with your private key and RPC URLs
-npx hardhat run scripts/deploy.js --network goerli
+npm run test:indexer
+npm run test:api
+npm run preflight
+npm run e2e:0g
+npm run e2e:compute   # PASS, FAIL, or BLOCKED if no Compute key
+npm run test:contracts
 ```
 
-### 3. Backend AI Service
+`e2e:loan` stays BLOCKED until the Galileo signer has enough 0G for borrow + repay. That is not a Phase 3 requirement.
 
-```bash
-# Navigate to backend directory
-cd backend
-
-# Install dependencies
-npm install
-
-# Start the service
-npm run dev
-# or
-npm start
-```
-
-The backend will run on `http://localhost:3001`
-
-### 4. Frontend
-
-```bash
-# Navigate to frontend directory
-cd frontend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-```
-
-The frontend will run on `http://localhost:3000`
-
-### 5. Quick Start (All Services)
-
-From the root directory:
-
-```bash
-# Terminal 1: Start backend
-npm run dev:backend
-
-# Terminal 2: Start frontend  
-npm run dev:frontend
-
-# Terminal 3: Start local blockchain (optional)
-cd contracts && npx hardhat node
-```
-
----
-
-## How It Works (Wave 1)
-
-1. Borrower connects wallet → requests loan.
-2. Frontend calls backend AI service → generates dummy credit score.
-3. If score passes threshold → loan request is sent to smart contract.
-4. Loan is disbursed from lender’s pool.
-5. Borrower repays loan + fixed interest.
-
----
-
-## Current Limitations
-
-* AI scoring is **mocked** (no real ML yet).
-* Only **rule-based eligibility** in smart contract.
-* No lending pools (direct borrowing only).
-* No privacy/reputation features (coming in later waves).
-
-## 🧪 Testing the API
-
-### Test Credit Score Endpoint
-
-```bash
-# Test with example wallet
-curl "http://localhost:3001/getCreditScore?wallet=0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
-
-# Expected response:
-{
-  "wallet": "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6",
-  "creditScore": "High",
-  "walletData": {
-    "balance": "2.5 ETH",
-    "transactionCount": 25,
-    "lastActivity": "2024-01-15"
-  },
-  "timestamp": "2024-01-15T10:30:00.000Z",
-  "wave": "Wave 1 MVP - Rule-based AI placeholder"
-}
-```
-
-### Test Health Check
-
-```bash
-curl "http://localhost:3001/health"
-```
-
----
+Architecture, scoring, cache, and PASS vs BLOCKED: [docs/PHASE3.md](docs/PHASE3.md).
 
 ## License
 
-MIT License © 2025 Credora
-
----
-
+MIT
