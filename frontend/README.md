@@ -1,65 +1,101 @@
-# Credora Frontend
+# Credora frontend
 
-AI-powered decentralized lending platform frontend built with React, TypeScript, and Rainbow Kit.
+Wallet UI and local/Vercel API for Credora on 0G Galileo.
 
-## Features
+```bash
+cd frontend
+npm install
+npm run dev     # http://localhost:3100
+```
 
-- 🌈 **Rainbow Kit Integration**: Modern wallet connection with support for multiple wallets
-- 🔗 **Wagmi Hooks**: Type-safe Ethereum interactions
-- 🎨 **Modern UI**: Beautiful dark theme with glass morphism effects
-- 📱 **Responsive Design**: Works on desktop and mobile devices
-- ⚡ **Fast Development**: Built with Vite for rapid development
+Pair with the indexer (`npm run dev:indexer` from the repo root). Setup: [SETUP.md](../SETUP.md). Architecture: [docs/PHASE3.md](../docs/PHASE3.md).
 
-## Wallet Integration
+---
 
-The app now uses Rainbow Kit and Wagmi for wallet connections:
+## Routes
 
-- **Rainbow Kit**: Provides a beautiful wallet modal with support for multiple wallets
-- **Wagmi**: Type-safe hooks for Ethereum interactions
-- **Supported Chains**: Ethereum Mainnet, Polygon, Optimism, Arbitrum, Base, Sepolia
+| Route               | Notes                                                    |
+| ------------------- | -------------------------------------------------------- |
+| `/`                 | Marketing landing                                        |
+| `/dashboard`        | Primary product surface                                  |
+| `/borrow`           | Request a loan (`/loan-request` redirects here)          |
+| `/credit-score`     | Deterministic score + AI risk when available             |
+| `/loans`            | Indexed loans                                            |
+| `/loans/:loanId`    | Loan detail                                              |
+| `/activity`         | Activity feed                                            |
+| `/lender`           | Indexed borrower lookup (not a funding desk)             |
+| `/lender/:address`  | Borrower intelligence                                    |
+| `/analytics`        | Indexed counts only                                      |
+| `/account`          | Wallet, network, profile and 0G service status           |
+| `*`                 | Not-found state                                          |
 
-## Getting Started
+Wallet connection is the only authentication step. Gated routes share `ConnectGate`.
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+---
 
-2. Start the development server:
-   ```bash
-   npm run dev
-   ```
+## How scoring works
 
-3. Open [http://localhost:3001](http://localhost:3001) in your browser
+- Live scoring and AI risk live in `api/` (deterministic `credora-onchain-v1`, 0G Compute JSON).
+- The browser talks to `/api` and the indexer stream; it does not invent scores.
+- Loan terms mirror `Loan.sol`: 5% fixed interest, 30-day term, >0.5 0G minimum balance, requests capped at 2× balance.
+- Wallet access runs through wagmi + RainbowKit.
 
-## Wallet Connection
+---
 
-Click the "Connect Wallet" button in the header to open the Rainbow Kit modal. The modal supports:
+## Design system
 
-- MetaMask
-- WalletConnect
-- Coinbase Wallet
-- And many more wallets
+Tokens live in `tailwind.config.js`; base styles in `src/styles/index.css`.
 
-## Project Structure
+- **Canvas** warm off-white `#F6F5F1`, white surfaces, warm hairline borders.
+- **Brand** deep ink-teal ramp (`brandsolid` for primary actions, `brand-500` for accents and data).
+- **Semantic** positive / caution / critical / info.
+- **Type** Inter for UI, Inter Tight for display, JetBrains Mono for addresses and hashes. Financial figures use tabular numerals.
+
+Charts are hand-built SVG in `src/components/charts/`.
+
+### Light and dark themes
+
+Colour tokens resolve through CSS variables. A `dark` class on `<html>` re-themes the app.
+
+- `src/contexts/ThemeContext.tsx` holds `light` / `dark` / `system` and persists to `localStorage`.
+- An inline script in `index.html` applies the class before first paint.
+- `ThemeToggle` / `ThemeSelect` live in `src/components/ui/ThemeToggle.tsx`.
+
+### Structure
 
 ```
 src/
-├── components/     # Reusable UI components
-├── contexts/       # React contexts (legacy)
-├── hooks/          # Custom hooks including useWallet
-├── pages/          # Page components
-├── providers/      # Wagmi and Rainbow Kit providers
-└── config/         # Configuration files
+├── components/
+│   ├── ui/
+│   ├── charts/
+│   ├── layout/
+│   ├── credit/
+│   ├── lender/
+│   ├── loans/
+│   ├── activity/
+│   └── wallet/
+├── contexts/
+├── services/
+├── hooks/
+├── lib/
+└── pages/
+api/
+├── _lib/          scoring, compute, indexer client, risk schema
+├── credit-score.ts
+├── credit-profile.ts
+├── risk-assessment.ts
+├── lender/
+└── analytics.ts
 ```
 
-## Technologies Used
+---
 
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
-- Rainbow Kit
-- Wagmi
-- React Router
-- Lucide React Icons
+## Scripts
+
+| Command             | Description                      |
+| ------------------- | -------------------------------- |
+| `npm run dev`       | Dev server on port 3100          |
+| `npm run build`     | Typecheck, then production build |
+| `npm run typecheck` | `tsc --noEmit` for app and API   |
+| `npm run test:api`  | API unit tests                   |
+| `npm run preview`   | Serve the production build       |
