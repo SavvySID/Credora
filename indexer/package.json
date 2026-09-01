@@ -1,0 +1,40 @@
+{
+  "name": "credora-indexer",
+  "version": "1.0.0",
+  "description": "Credora 0G indexer worker: reads Loan.sol events and wallet activity from 0G Chain, writes Credora records to 0G Storage, and serves a read-only index",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "worker": "tsx src/worker-main.ts",
+    "server": "tsx src/server-main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/lib/sourceHash.test.ts src/lib/reputation.test.ts src/records/schema.test.ts src/store/store.test.ts",
+    "e2e:0g": "tsx scripts/e2e-0g.ts",
+    "e2e:loan": "tsx scripts/e2e-loan.ts",
+    "e2e:compute": "tsx scripts/e2e-compute.ts",
+    "preflight": "tsx scripts/preflight.ts",
+    "inspect:wallet": "tsx scripts/inspect-wallet.ts"
+  },
+  "dependencies": {
+    "@0gfoundation/0g-storage-ts-sdk": "^1.2.11",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "ethers": "6.13.1",
+    "express": "^4.21.2",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/node": "^24.7.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "author": "Credora Team",
+  "license": "MIT"
+}
