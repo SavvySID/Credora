@@ -1,261 +1,119 @@
-# 🚀 Credora Setup Guide - Wave 1 MVP
+# Credora setup
 
-This guide will walk you through setting up and running the Credora AI-powered decentralized lending dApp.
+Run **indexer** + **frontend**. Legacy `backend/` is unused for current work.
 
-## 📋 Prerequisites
+## Prerequisites
 
-Before you begin, ensure you have the following installed:
+- Node.js 22.5+ (indexer uses `node:sqlite`)
+- npm 8+
+- MetaMask (or another injected wallet) with 0G Galileo (chain id 16602)
+- Optional: 0G Compute inference key from https://pc.0g.ai
+- Optional: Galileo private key funded from https://faucet.0g.ai for 0G Storage writes and loan txs
 
-- **Node.js** (v16 or higher) - [Download here](https://nodejs.org/)
-- **npm** (v8 or higher) - Comes with Node.js
-- **MetaMask** browser extension - [Download here](https://metamask.io/)
-- **Git** - [Download here](https://git-scm.com/)
-
-## 🏗️ Project Structure
+## Project layout
 
 ```
 credora/
-├── contracts/          # Solidity smart contracts
-│   ├── Loan.sol       # Main loan contract
-│   ├── scripts/       # Deployment scripts
-│   └── test/          # Contract tests
-├── backend/            # AI credit scoring service
-│   └── server.js      # Express.js API server
-├── frontend/           # React frontend
-│   ├── src/           # Source code
-│   ├── components/    # React components
-│   └── pages/         # Page components
-└── README.md          # Project documentation
+├── contracts/              # Loan.sol (already deployed; do not redeploy for Phases 1–3)
+├── indexer/                # Chain + storage worker and read API
+├── frontend/               # App + Vercel/Vite API
+│   ├── api/                # Scoring, Compute, profile, lender, analytics
+│   └── src/                # React UI
+└── docs/PHASE3.md          # Architecture and honesty rules
 ```
 
-## ⚡ Quick Start
-
-### 1. Clone and Install
+## 1. Indexer
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-cd credora
-
-# Install all dependencies
-npm run install:all
-```
-
-### 2. Start Services
-
-```bash
-# Terminal 1: Start backend AI service
-npm run dev:backend
-
-# Terminal 2: Start frontend
-npm run dev:frontend
-
-# Terminal 3: Start local blockchain (optional)
-cd contracts && npx hardhat node
-```
-
-### 3. Access the Application
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
-- **Local Blockchain**: http://localhost:8545 (if running)
-
-## 🔧 Detailed Setup
-
-### Smart Contracts Setup
-
-```bash
-cd contracts
-
-# Install dependencies
+cd indexer
 npm install
-
-# Compile contracts
-npm run compile
-
-# Run tests
-npm test
-
-# Deploy to local network
-npx hardhat node
-# In another terminal:
-npx hardhat run scripts/deploy.js --network localhost
+cp env.example .env         # then fill secrets
+npm run dev                 # worker + HTTP server on :3200
 ```
 
-### Backend Setup
+Minimum `.env` (see `indexer/env.example`):
 
-```bash
-cd backend
-
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
+```
+INDEXER_SHARED_SECRET=      # same value as the app API
+LOAN_CONTRACT_ADDRESS=0x994463b7c46889bF640fFc79f6B1368f9374e6A2
+LOAN_DEPLOY_BLOCK=52485479
+OG_RPC_URL=https://evmrpc-testnet.0g.ai
+OG_CHAIN_ID=16602
 ```
 
-The backend provides:
-- `/getCreditScore?wallet=<address>` - Get AI credit score
-- `/health` - Health check endpoint
-- `/` - API information
+`OG_STORAGE_PRIVATE_KEY` is required for 0G Storage **writes**. Without it, writes are BLOCKED; reads and indexing still work. Restart the indexer after schema changes so `assessment_cache` is created.
 
-### Frontend Setup
+## 2. App + API
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
+cp .env.example .env.local  # then fill secrets
+npm run dev                 # http://localhost:3100
 ```
 
-## 🧪 Testing
+Server-only (never `VITE_`):
 
-### Test the API
-
-```bash
-# Test credit scoring
-curl "http://localhost:3001/getCreditScore?wallet=0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
-
-# Test health check
-curl "http://localhost:3001/health"
+```
+INDEXER_URL=http://localhost:3200
+INDEXER_SHARED_SECRET=      # must match indexer
+ZG_COMPUTE_API_KEY=         # optional; AI risk stays unavailable until set
+ZG_COMPUTE_MODEL=
 ```
 
-### Test Smart Contracts
+Browser-safe:
+
+```
+VITE_LOAN_CONTRACT_ADDRESS=0x994463b7c46889bF640fFc79f6B1368f9374e6A2
+VITE_0G_CHAIN_ID=16602
+VITE_WALLETCONNECT_PROJECT_ID=
+```
+
+## 3. Network
+
+Add Galileo in the wallet:
+
+- RPC: `https://evmrpc-testnet.0g.ai`
+- Chain id: `16602`
+- Explorer: `https://chainscan-galileo.0g.ai`
+- Symbol: `0G`
+
+Faucet: https://faucet.0g.ai
+
+Borrow/repay needs more than ~1.05 0G on the signing wallet (Phase 2 E2E). Credit intelligence does not wait on that.
+
+## Commands
+
+From the repo root:
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev:indexer` | Indexer worker + API |
+| `npm run dev:frontend` | Vite app + `/api` |
+| `npm run preflight` | Credential-free indexer probes (blocked capabilities are OK) |
+| `npm run test:indexer` | Indexer unit tests |
+| `npm run test:api` | Scoring, AI schema, Compute fallback tests |
+| `npm run e2e:0g` | Live 0G Storage/chain proof |
+| `npm run e2e:compute` | Live 0G Compute proof (exit 2 = BLOCKED) |
+| `npm run e2e:loan` | Live borrow/repay (BLOCKED without funds) |
+| `npm run test:contracts` | Hardhat tests for the existing Loan.sol |
+
+## Contract tests (optional)
 
 ```bash
 cd contracts
+npm install
 npm test
 ```
 
-### Test Frontend
+Do not redeploy `Loan.sol`. Address: `0x994463b7c46889bF640fFc79f6B1368f9374e6A2`.
 
-1. Open http://localhost:3000
-2. Connect MetaMask wallet
-3. Navigate to Dashboard
-4. Check credit score
-5. Try requesting a loan
+## Troubleshooting
 
-## 🔐 Environment Configuration
+- **API 503 / indexer unavailable** — indexer not running, or `INDEXER_SHARED_SECRET` mismatch.
+- **Compute Unavailable** — `ZG_COMPUTE_API_KEY` / `ZG_COMPUTE_MODEL` unset. Deterministic score still works.
+- **Records stay unverified** — no `OG_STORAGE_PRIVATE_KEY`, or the key is unfunded. Status stays pending/unverified; the UI must not say Verified.
+- **Loan tx reverts** — balance below 0.5 0G, existing active loan, or insufficient gas/value for repay.
+- **Restart indexer** after pulling schema/cache changes.
 
-### For Testnet Deployment
-
-1. Create `.env` file in `contracts/` directory:
-
-```bash
-# Copy example file
-cp env.example .env
-
-# Edit with your values
-nano .env
-```
-
-2. Add your configuration:
-
-```env
-GOERLI_RPC_URL=https://goerli.infura.io/v3/YOUR-PROJECT-ID
-SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR-PROJECT-ID
-PRIVATE_KEY=your_private_key_here
-ETHERSCAN_API_KEY=your_etherscan_api_key_here
-REPORT_GAS=true
-```
-
-3. Deploy to testnet:
-
-```bash
-npm run deploy:goerli
-# or
-npm run deploy:sepolia
-```
-
-## 🎯 Wave 1 MVP Features
-
-### ✅ Implemented
-- **Smart Contract**: Basic loan functionality with rule-based approval
-- **AI Backend**: Rule-based credit scoring (High/Medium/Low)
-- **Frontend**: React app with wallet connection and loan forms
-- **Wallet Integration**: MetaMask support
-- **Basic UI**: Dashboard, loan request, credit score display
-
-### 🔄 Rule-based Logic
-- **High Credit**: txCount > 10 AND balance > 0.5 ETH
-- **Medium Credit**: txCount 5-10
-- **Low Credit**: txCount < 5
-
-### 📊 Mock Data
-- Backend uses mock blockchain data for Wave 1
-- Real blockchain integration coming in Wave 2
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-1. **Port already in use**
-   ```bash
-   # Kill process using port 3000
-   lsof -ti:3000 | xargs kill -9
-   ```
-
-2. **MetaMask not connecting**
-   - Ensure MetaMask is unlocked
-   - Check if you're on the right network
-   - Try refreshing the page
-
-3. **Contract compilation errors**
-   ```bash
-   cd contracts
-   rm -rf cache artifacts
-   npm run compile
-   ```
-
-4. **Backend API errors**
-   - Check if backend is running on port 3001
-   - Verify CORS settings
-   - Check console for error messages
-
-### Debug Mode
-
-```bash
-# Backend with debug logging
-cd backend
-DEBUG=* npm run dev
-
-# Frontend with React DevTools
-cd frontend
-npm run dev
-```
-
-## 📚 Next Steps
-
-### Wave 2 (Planned)
-- Real blockchain data integration
-- Enhanced credit scoring algorithms
-- Lending pools implementation
-
-### Wave 3 (Planned)
-- Machine learning models
-- Advanced risk assessment
-- Privacy features
-
-### Wave 4 (Planned)
-- 0G chain integration
-- Cross-chain functionality
-- Advanced DeFi features
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-MIT License © 2025 Credora
-
----
-
-**Need Help?** Check the main README.md or create an issue in the repository.
+Details: [docs/PHASE3.md](docs/PHASE3.md).
