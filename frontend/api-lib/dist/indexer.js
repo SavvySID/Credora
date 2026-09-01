@@ -182,10 +182,10 @@ async function fromIndexerOrGalileo(indexerCall, fallback) {
         throw error;
     }
 }
-async function loadFeatures(wallet) {
+async function loadFeatures(wallet, opts = {}) {
     const { fetchGalileoFeatures, GalileoUnavailableError } = await Promise.resolve().then(() => __importStar(require('./galileo')));
     try {
-        return await fromIndexerOrGalileo(() => exports.indexerClient.features(wallet), () => fetchGalileoFeatures(wallet));
+        return await fromIndexerOrGalileo(() => exports.indexerClient.features(wallet), () => fetchGalileoFeatures(wallet, opts.fast ? { skipExplorer: true } : {}));
     }
     catch (error) {
         if (error instanceof GalileoUnavailableError) {

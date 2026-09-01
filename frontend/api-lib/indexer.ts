@@ -321,12 +321,12 @@ async function fromIndexerOrGalileo<T>(indexerCall: () => Promise<T>, fallback: 
   }
 }
 
-export async function loadFeatures(wallet: string): Promise<FeaturesDto> {
+export async function loadFeatures(wallet: string, opts: { fast?: boolean } = {}): Promise<FeaturesDto> {
   const { fetchGalileoFeatures, GalileoUnavailableError } = await import('./galileo');
   try {
     return await fromIndexerOrGalileo(
       () => indexerClient.features(wallet),
-      () => fetchGalileoFeatures(wallet),
+      () => fetchGalileoFeatures(wallet, opts.fast ? { skipExplorer: true } : {}),
     );
   } catch (error) {
     if (error instanceof GalileoUnavailableError) {

@@ -25,7 +25,8 @@ const EXPLORER_API =
   process.env.CHAINSCAN_API_URL ?? 'https://chainscan-galileo.0g.ai/open/api';
 const EXPLORER_KEY = process.env.CHAINSCAN_API_KEY ?? '';
 
-const TIMEOUT_MS = process.env.VERCEL ? 2_500 : 12_000;
+const TIMEOUT_MS = process.env.VERCEL ? 2_000 : 12_000;
+const EXPLORER_FAST_MS = process.env.VERCEL ? 1_000 : 8_000;
 
 const LOAN_INDEXING = {
   available: false as const,
@@ -95,7 +96,7 @@ interface ExplorerTx {
   txreceipt_status?: string;
 }
 
-async function fetchExplorerTransactions(address: string): Promise<ExplorerTx[]> {
+async function fetchExplorerTransactions(address: string, timeoutMs = TIMEOUT_MS): Promise<ExplorerTx[]> {
   const url = new URL(EXPLORER_API);
   url.searchParams.set('module', 'account');
   url.searchParams.set('action', 'txlist');
@@ -108,7 +109,7 @@ async function fetchExplorerTransactions(address: string): Promise<ExplorerTx[]>
   if (EXPLORER_KEY) url.searchParams.set('apikey', EXPLORER_KEY);
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) {
@@ -140,7 +141,10 @@ function sourceHash(value: unknown): string {
   return `0x${createHash('sha256').update(json).digest('hex')}`;
 }
 
-export async function fetchGalileoWallet(address: string): Promise<WalletSnapshotDto> {
+export async function fetchGalileoWallet(
+  address: string,
+  opts: { explorerMs?: number; skipExplorer?: boolean } = {},
+): Promise<WalletSnapshotDto> {
   const wallet = address.toLowerCase();
   const [balanceHex, nonceHex] = await Promise.all([
     rpc<string>('eth_getBalance', [wallet, 'latest']),
@@ -154,8 +158,13 @@ export async function fetchGalileoWallet(address: string): Promise<WalletSnapsho
   let degraded = false;
   let degradedReason: string | null = null;
 
-  try {
-    const raw = await fetchExplorerTransactions(wallet);
+  if (opts.skipExplorer) {
+    degraded = true;
+    degradedReason =
+      'Chain Scan skipped so 0G Compute can finish inside the deployment time limit. Balance and nonce are still from Galileo RPC.';
+  } else {
+    try {
+    const raw = await fetchExplorerTransactions(wallet, opts.explorerMs ?? TIMEOUT_MS);
     transactions = raw
       .map((entry) => {
         const from = (entry.from ?? '').toLowerCase();
@@ -176,9 +185,10 @@ export async function fetchGalileoWallet(address: string): Promise<WalletSnapsho
         };
       })
       .filter((entry): entry is WalletSnapshotDto['transactions'][number] => entry !== null);
-  } catch (error) {
-    degraded = true;
-    degradedReason = error instanceof Error ? error.message : String(error);
+    } catch (error) {
+      degraded = true;
+      degradedReason = error instanceof Error ? error.message : String(error);
+    }
   }
 
   const sorted = [...transactions].sort(
@@ -244,9 +254,14 @@ export function featuresFromWallet(snapshot: WalletSnapshotDto): FeaturesDto {
   };
 }
 
-export async function fetchGalileoFeatures(address: string): Promise<FeaturesDto> {
-  return featuresFromWallet(await fetchGalileoWallet(address));
+export async function fetchGalileoFeatures(
+  address: string,
+  opts: { explorerMs?: number; skipExplorer?: boolean } = {},
+): Promise<FeaturesDto> {
+  return featuresFromWallet(await fetchGalileoWallet(address, opts));
 }
+
+export { EXPLORER_FAST_MS };
 
 export const emptyLoanView = {
   loans: [] as never[],

@@ -28,7 +28,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
 
   let features;
   try {
-    features = await loadFeatures(wallet);
+    features = await loadFeatures(wallet, { fast: req.method === 'POST' });
   } catch (error) {
     if (error instanceof IndexerUnavailableError) {
       unavailable(res, 'Credora indexer', error.message);

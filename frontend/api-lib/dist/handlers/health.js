@@ -71,8 +71,10 @@ async function handle(req, res) {
         },
     };
     const healthy = services.indexer.online && services.chain.online && services.storage.online;
+    // HTTP 200 means the probe ran. `healthy` is still false when indexer/storage
+    // are down so the UI can show 1/3 without the browser logging a failed request.
     (0, http_1.noStore)(res);
-    res.status(healthy ? 200 : 503).json({
+    res.status(200).json({
         healthy,
         checkedAt: new Date().toISOString(),
         services,

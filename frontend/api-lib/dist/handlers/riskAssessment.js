@@ -27,7 +27,7 @@ async function handle(req, res) {
     const analysisType = analysis.value;
     let features;
     try {
-        features = await (0, indexer_1.loadFeatures)(wallet);
+        features = await (0, indexer_1.loadFeatures)(wallet, { fast: req.method === 'POST' });
     }
     catch (error) {
         if (error instanceof indexer_1.IndexerUnavailableError) {

@@ -8,7 +8,7 @@
  * never invents repayments or a Verified record.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.emptyRecords = exports.emptyLoanView = exports.GalileoUnavailableError = void 0;
+exports.emptyRecords = exports.emptyLoanView = exports.EXPLORER_FAST_MS = exports.GalileoUnavailableError = void 0;
 exports.fetchGalileoWallet = fetchGalileoWallet;
 exports.featuresFromWallet = featuresFromWallet;
 exports.fetchGalileoFeatures = fetchGalileoFeatures;
@@ -27,7 +27,9 @@ const RPC_URL = process.env.OG_RPC_URL ?? 'https://evmrpc-testnet.0g.ai';
 const CHAIN_ID = Number.parseInt(process.env.OG_CHAIN_ID ?? '16602', 10);
 const EXPLORER_API = process.env.CHAINSCAN_API_URL ?? 'https://chainscan-galileo.0g.ai/open/api';
 const EXPLORER_KEY = process.env.CHAINSCAN_API_KEY ?? '';
-const TIMEOUT_MS = process.env.VERCEL ? 2_500 : 12_000;
+const TIMEOUT_MS = process.env.VERCEL ? 2_000 : 12_000;
+const EXPLORER_FAST_MS = process.env.VERCEL ? 1_000 : 8_000;
+exports.EXPLORER_FAST_MS = EXPLORER_FAST_MS;
 const LOAN_INDEXING = {
     available: false,
     blockedReason: 'Loan index lives on the Credora indexer worker. This deployment is reading Galileo RPC and Chain Scan directly.',
@@ -86,7 +88,7 @@ function toBigInt(raw) {
         return 0n;
     }
 }
-async function fetchExplorerTransactions(address) {
+async function fetchExplorerTransactions(address, timeoutMs = TIMEOUT_MS) {
     const url = new URL(EXPLORER_API);
     url.searchParams.set('module', 'account');
     url.searchParams.set('action', 'txlist');
@@ -99,7 +101,7 @@ async function fetchExplorerTransactions(address) {
     if (EXPLORER_KEY)
         url.searchParams.set('apikey', EXPLORER_KEY);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) {
@@ -126,7 +128,7 @@ function sourceHash(value) {
     const json = JSON.stringify(value);
     return `0x${(0, node_crypto_1.createHash)('sha256').update(json).digest('hex')}`;
 }
-async function fetchGalileoWallet(address) {
+async function fetchGalileoWallet(address, opts = {}) {
     const wallet = address.toLowerCase();
     const [balanceHex, nonceHex] = await Promise.all([
         rpc('eth_getBalance', [wallet, 'latest']),
@@ -137,32 +139,39 @@ async function fetchGalileoWallet(address) {
     let transactions = [];
     let degraded = false;
     let degradedReason = null;
-    try {
-        const raw = await fetchExplorerTransactions(wallet);
-        transactions = raw
-            .map((entry) => {
-            const from = (entry.from ?? '').toLowerCase();
-            const to = entry.to && entry.to !== '' ? entry.to.toLowerCase() : null;
-            const seconds = Number(toBigInt(entry.timestamp ?? entry.timeStamp));
-            if (!Number.isFinite(seconds) || seconds <= 0)
-                return null;
-            const direction = from === wallet && to === wallet ? 'self' : from === wallet ? 'out' : 'in';
-            return {
-                hash: entry.hash,
-                from,
-                to,
-                valueWei: toBigInt(entry.value).toString(),
-                timestamp: new Date(seconds * 1000).toISOString(),
-                blockNumber: Number(toBigInt(entry.blockNumber)),
-                direction,
-                isError: entry.isError === '1' || entry.txreceipt_status === '0',
-            };
-        })
-            .filter((entry) => entry !== null);
-    }
-    catch (error) {
+    if (opts.skipExplorer) {
         degraded = true;
-        degradedReason = error instanceof Error ? error.message : String(error);
+        degradedReason =
+            'Chain Scan skipped so 0G Compute can finish inside the deployment time limit. Balance and nonce are still from Galileo RPC.';
+    }
+    else {
+        try {
+            const raw = await fetchExplorerTransactions(wallet, opts.explorerMs ?? TIMEOUT_MS);
+            transactions = raw
+                .map((entry) => {
+                const from = (entry.from ?? '').toLowerCase();
+                const to = entry.to && entry.to !== '' ? entry.to.toLowerCase() : null;
+                const seconds = Number(toBigInt(entry.timestamp ?? entry.timeStamp));
+                if (!Number.isFinite(seconds) || seconds <= 0)
+                    return null;
+                const direction = from === wallet && to === wallet ? 'self' : from === wallet ? 'out' : 'in';
+                return {
+                    hash: entry.hash,
+                    from,
+                    to,
+                    valueWei: toBigInt(entry.value).toString(),
+                    timestamp: new Date(seconds * 1000).toISOString(),
+                    blockNumber: Number(toBigInt(entry.blockNumber)),
+                    direction,
+                    isError: entry.isError === '1' || entry.txreceipt_status === '0',
+                };
+            })
+                .filter((entry) => entry !== null);
+        }
+        catch (error) {
+            degraded = true;
+            degradedReason = error instanceof Error ? error.message : String(error);
+        }
     }
     const sorted = [...transactions].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     return {
@@ -220,8 +229,8 @@ function featuresFromWallet(snapshot) {
         degradedReason: snapshot.degradedReason,
     };
 }
-async function fetchGalileoFeatures(address) {
-    return featuresFromWallet(await fetchGalileoWallet(address));
+async function fetchGalileoFeatures(address, opts = {}) {
+    return featuresFromWallet(await fetchGalileoWallet(address, opts));
 }
 exports.emptyLoanView = {
     loans: [],
