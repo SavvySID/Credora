@@ -1,9 +1,16 @@
+function vercelCap(requested: number, cap: number): number {
+  const value = Number.isFinite(requested) && requested > 0 ? requested : cap;
+  return process.env.VERCEL ? Math.min(value, cap) : value;
+}
+
 function computeEnv() {
+  const requested = Number.parseInt(process.env.ZG_COMPUTE_TIMEOUT_MS ?? '25000', 10);
   return {
     routerUrl: process.env.ZG_COMPUTE_ROUTER_URL ?? 'https://router-api.0g.ai/v1',
     apiKey: process.env.ZG_COMPUTE_API_KEY ?? '',
     model: process.env.ZG_COMPUTE_MODEL ?? '',
-    timeoutMs: Number.parseInt(process.env.ZG_COMPUTE_TIMEOUT_MS ?? '25000', 10),
+    // Hobby functions die at ~10s. A 25s router wait becomes FUNCTION_INVOCATION_FAILED.
+    timeoutMs: vercelCap(requested, 6_000),
   };
 }
 
@@ -44,7 +51,7 @@ export async function probeCompute(): Promise<ComputeProbe> {
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8_000);
+    const timer = setTimeout(() => controller.abort(), process.env.VERCEL ? 4_000 : 8_000);
     const response = await fetch(`${computeEnv().routerUrl}/models`, { signal: controller.signal });
     clearTimeout(timer);
 

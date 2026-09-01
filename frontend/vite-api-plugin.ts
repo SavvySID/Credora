@@ -58,6 +58,8 @@ async function dispatch(req: IncomingMessage, res: ServerResponse): Promise<bool
 
   if (path === '/api/health') {
     handler = (await import('./api/health')).default;
+  } else if (path === '/api/ping') {
+    handler = (await import('./api/ping')).default;
   } else if (path === '/api/credit-score') {
     handler = (await import('./api/credit-score')).default;
   } else if (path === '/api/credit-profile') {

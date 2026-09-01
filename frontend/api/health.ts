@@ -1,89 +1,68 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient, indexerConfigured } from '../api-lib/indexer';
-import { probeCompute } from '../api-lib/computeProbe';
-import { methodGuard, noStore, withApiHandler } from '../api-lib/http';
-
 /**
- * Real service status. Every field here is the result of an actual probe, so
- * the UI status indicators reflect reachability rather than a constant.
+ * Vercel entry. No static imports — a missing helper module must return JSON,
+ * not FUNCTION_INVOCATION_FAILED.
  */
-export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!methodGuard(req, res, ['GET'])) return;
+export default async function handler(
+  req: { method?: string },
+  res: {
+    headersSent?: boolean;
+    status: (code: number) => { json: (body: unknown) => void };
+  },
+) {
+  try {
+    const { handle } = await import('../api-lib/handlers/health');
+    await handle(req as never, res as never);
+  } catch (error) {
+    if (res.headersSent) return;
+    const detail = error instanceof Error ? error.message : 'Health handler failed to load';
+    const apiKey = (process.env.ZG_COMPUTE_API_KEY ?? '').trim();
+    const model = (process.env.ZG_COMPUTE_MODEL ?? '').trim();
+    const configured = Boolean(apiKey && model);
+    let reachable = false;
+    try {
+      const router = process.env.ZG_COMPUTE_ROUTER_URL ?? 'https://router-api.0g.ai/v1';
+      const response = await fetch(`${router}/models`, { signal: AbortSignal.timeout(4_000) });
+      reachable = response.ok;
+    } catch {
+      reachable = false;
+    }
 
-  const configured = indexerConfigured();
-
-  const [indexerHealth, compute] = await Promise.all([
-    configured.ok
-      ? indexerClient.health().catch((error: unknown) => ({
-          __error:
-            error instanceof IndexerUnavailableError ? error.message : String(error),
-        }))
-      : Promise.resolve({ __error: configured.reason }),
-    probeCompute(),
-  ]);
-
-  const indexerError = (indexerHealth as { __error?: string }).__error ?? null;
-  const indexerOk = indexerError === null && (indexerHealth as { healthy?: boolean }).healthy === true;
-
-  const upstream = indexerError
-    ? null
-    : (indexerHealth as {
-        chain?: { reachable: boolean; chainId: number | null; blockNumber: number | null; chainIdMatches: boolean | null };
-        storage?: { reachable: boolean; trustedNodes: number | null; writeCapability: { available: boolean; blockedReason: string | null } };
-        explorer?: { reachable: boolean };
-        capabilities?: Record<string, { available: boolean; blockedReason: string | null }>;
-        index?: { total: number; stored: number; verified: number; cursorBlock: number | null };
-      });
-
-  const services = {
-    indexer: {
-      name: 'Credora indexer',
-      online: indexerOk,
-      detail: indexerError,
-    },
-    chain: {
-      name: '0G Chain',
-      online: upstream?.chain?.reachable ?? false,
-      chainId: upstream?.chain?.chainId ?? null,
-      blockNumber: upstream?.chain?.blockNumber ?? null,
-      chainIdMatches: upstream?.chain?.chainIdMatches ?? null,
-      detail: upstream?.chain?.reachable === false ? 'RPC unreachable' : null,
-    },
-    storage: {
-      name: '0G Storage',
-      online: upstream?.storage?.reachable ?? false,
-      trustedNodes: upstream?.storage?.trustedNodes ?? null,
-      // Read and write are distinct: reads work with no credential, writes
-      // need a funded signer.
-      writes: upstream?.storage?.writeCapability ?? {
-        available: false,
-        blockedReason: 'Indexer unreachable',
+    res.status(503).json({
+      healthy: false,
+      checkedAt: new Date().toISOString(),
+      error: 'service_unavailable',
+      service: 'Credora API',
+      detail,
+      message: 'Credora API could not load its health probe. No substitute data was generated.',
+      services: {
+        indexer: {
+          name: 'Credora indexer',
+          online: false,
+          detail:
+            'Indexer is not reachable from this deployment. Host the indexer and set INDEXER_URL to a public https URL.',
+        },
+        chain: { name: '0G Chain', online: false, chainId: null, detail: 'Indexer unreachable' },
+        storage: {
+          name: '0G Storage',
+          online: false,
+          writes: { available: false, blockedReason: 'Indexer unreachable' },
+          detail: 'Indexer unreachable',
+        },
+        compute: {
+          name: '0G Compute',
+          online: reachable && configured,
+          reachable,
+          configured,
+          detail: configured
+            ? reachable
+              ? null
+              : '0G Compute router was unreachable'
+            : 'ZG_COMPUTE_API_KEY or ZG_COMPUTE_MODEL is not set.',
+        },
+        explorer: { name: '0G Chain Scan', online: false, detail: 'Indexer unreachable' },
       },
-      detail: upstream?.storage?.reachable === false ? 'Storage indexer unreachable' : null,
-    },
-    compute: {
-      name: '0G Compute',
-      online: compute.reachable && compute.configured,
-      reachable: compute.reachable,
-      configured: compute.configured,
-      models: compute.models,
-      detail: compute.blockedReason ?? compute.error,
-    },
-    explorer: {
-      name: '0G Chain Scan',
-      online: upstream?.explorer?.reachable ?? false,
-      detail: upstream?.explorer?.reachable === false ? 'Explorer API unreachable' : null,
-    },
-  };
-
-  const healthy = services.indexer.online && services.chain.online && services.storage.online;
-
-  noStore(res);
-  res.status(healthy ? 200 : 503).json({
-    healthy,
-    checkedAt: new Date().toISOString(),
-    services,
-    capabilities: upstream?.capabilities ?? null,
-    index: upstream?.index ?? null,
-  });
-});
+      capabilities: null,
+      index: null,
+    });
+  }
+}

@@ -5,10 +5,17 @@
  * authenticated routes directly.
  */
 
-const INDEXER_URL = process.env.INDEXER_URL ?? 'http://localhost:3200';
 const SHARED_SECRET = process.env.INDEXER_SHARED_SECRET ?? '';
 const requestedTimeout = Number.parseInt(process.env.INDEXER_TIMEOUT_MS ?? '20000', 10);
 const TIMEOUT_MS = process.env.VERCEL ? Math.min(requestedTimeout || 8000, 8000) : requestedTimeout || 20000;
+
+function resolveIndexerUrl(): string {
+  const configured = (process.env.INDEXER_URL ?? '').trim();
+  if (configured) return configured.replace(/\/$/, '');
+  return process.env.VERCEL ? '' : 'http://localhost:3200';
+}
+
+const INDEXER_URL = resolveIndexerUrl();
 
 export class IndexerUnavailableError extends Error {
   constructor(
@@ -27,6 +34,13 @@ export function indexerConfigured(): { ok: boolean; reason: string | null } {
       reason: 'INDEXER_SHARED_SECRET is not set on the API deployment.',
     };
   }
+  if (!INDEXER_URL) {
+    return {
+      ok: false,
+      reason:
+        'INDEXER_URL is not set. Host the indexer and set INDEXER_URL to its public https URL. Do not point it at this Vercel app.',
+    };
+  }
   if (/your-indexer-host/i.test(INDEXER_URL)) {
     return {
       ok: false,
@@ -40,6 +54,34 @@ export function indexerConfigured(): { ok: boolean; reason: string | null } {
         'INDEXER_URL points at localhost; Vercel cannot reach your PC. Host the indexer and set INDEXER_URL to its public https URL.',
     };
   }
+  if (/\/api$/i.test(INDEXER_URL)) {
+    return {
+      ok: false,
+      reason: 'INDEXER_URL must be the indexer worker origin, not this app\'s /api path.',
+    };
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(INDEXER_URL);
+  } catch {
+    return { ok: false, reason: 'INDEXER_URL is not a valid URL.' };
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { ok: false, reason: 'INDEXER_URL must be http or https.' };
+  }
+
+  const selfHosts = [process.env.VERCEL_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.replace(/^https?:\/\//, '').toLowerCase());
+  if (selfHosts.includes(parsed.host.toLowerCase())) {
+    return {
+      ok: false,
+      reason:
+        'INDEXER_URL points at this Vercel deployment. The indexer is a separate process; set INDEXER_URL to that public https origin.',
+    };
+  }
+
   return { ok: true, reason: null };
 }
 

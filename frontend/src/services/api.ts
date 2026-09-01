@@ -21,14 +21,21 @@ export class ApiUnavailableError extends Error {
 }
 
 function errorText(value: unknown, fallback: string): string {
-  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'string' && value.trim() && value !== '[object Object]') return value.trim();
+  if (value instanceof Error && value.message && value.message !== '[object Object]') {
+    return value.message;
+  }
   if (value && typeof value === 'object') {
     const rec = value as Record<string, unknown>;
     if (typeof rec.detail === 'string' && rec.detail.trim()) return rec.detail.trim();
-    if (typeof rec.message === 'string' && rec.message.trim()) return rec.message.trim();
-    if (typeof rec.error === 'string' && rec.error.trim()) return rec.error.trim();
+    if (typeof rec.message === 'string' && rec.message.trim() && rec.message !== '[object Object]') {
+      return rec.message.trim();
+    }
+    if (typeof rec.error === 'string' && rec.error.trim() && rec.error !== '[object Object]') {
+      return rec.error.trim();
+    }
+    if (rec.error && typeof rec.error === 'object') return errorText(rec.error, fallback);
   }
-  if (value instanceof Error && value.message) return value.message;
   return fallback;
 }
 

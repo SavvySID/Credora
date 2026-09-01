@@ -184,21 +184,21 @@ export class ZeroGCreditScoreService {
     const health = this.lastHealth;
     const blockedReasons: string[] = [];
 
-    if (health?.services.storage.writes && !health.services.storage.writes.available) {
+    if (health?.services?.storage?.writes && !health.services.storage.writes.available) {
       blockedReasons.push(health.services.storage.writes.blockedReason ?? '0G Storage writes blocked');
     }
-    if (health?.services.compute && !health.services.compute.configured) {
+    if (health?.services?.compute && !health.services.compute.configured) {
       blockedReasons.push(health.services.compute.detail ?? '0G Compute not configured');
     }
 
     return {
-      initialized: health?.services.storage.online ?? false,
+      initialized: health?.services?.storage?.online ?? false,
       pipelineConnected: zeroGPipelineService.getConnectionStatus(),
       subscriberCount: zeroGPipelineService.getSubscriberCount(),
-      storageOnline: health?.services.storage.online ?? false,
-      computeOnline: health?.services.compute.online ?? false,
-      computeConfigured: health?.services.compute.configured ?? false,
-      chainOnline: health?.services.chain.online ?? false,
+      storageOnline: health?.services?.storage?.online ?? false,
+      computeOnline: health?.services?.compute?.online ?? false,
+      computeConfigured: health?.services?.compute?.configured ?? false,
+      chainOnline: health?.services?.chain?.online ?? false,
       verifiedRecords: health?.index?.verified ?? 0,
       blockedReasons,
     };

@@ -1,30 +1,46 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../../../api-lib/indexer';
-import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../../api-lib/http';
+function indexerReady(): boolean {
+  const secret = (process.env.INDEXER_SHARED_SECRET ?? '').trim();
+  if (!secret) return false;
+  const url = (process.env.INDEXER_URL ?? '').trim();
+  if (process.env.VERCEL) {
+    if (!url) return false;
+    if (/localhost|127\.0\.0\.1|your-indexer-host/i.test(url)) return false;
+    if (/\/api$/i.test(url)) return false;
+  }
+  return true;
+}
 
-/**
- * Real wallet state from 0G Galileo: balance and nonce from the chain RPC,
- * transaction history from 0G Chain Scan.
- *
- * A degraded snapshot (history unavailable) is returned as-is with the flag
- * set, so the UI can say the history is unknown instead of showing an empty
- * list as though the wallet were inactive.
- */
-export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!methodGuard(req, res, ['GET'])) return;
+function unavailable(res: { status: (code: number) => { json: (body: unknown) => void } }, detail: string) {
+  res.status(503).json({
+    error: 'service_unavailable',
+    service: 'Credora indexer',
+    detail,
+    message: 'Credora indexer is unavailable. No substitute data was generated.',
+  });
+}
 
-  const address = readAddress(req, res);
-  if (!address) return;
+export default async function handler(
+  req: { method?: string; query?: Record<string, unknown>; body?: unknown },
+  res: {
+    headersSent?: boolean;
+    status: (code: number) => { json: (body: unknown) => void };
+  },
+) {
+  if (!indexerReady()) {
+    unavailable(
+      res,
+      process.env.VERCEL
+        ? 'Indexer is not reachable from this deployment. Host the indexer and set INDEXER_URL to a public https URL.'
+        : 'INDEXER_SHARED_SECRET or INDEXER_URL is not set.',
+    );
+    return;
+  }
 
   try {
-    const snapshot = await indexerClient.wallet(address, req.query.refresh === 'true');
-    cacheFor(res, 15);
-    res.status(200).json(snapshot);
+    const { handle } = await import('../../../api-lib/handlers/walletActivity');
+    await handle(req as never, res as never);
   } catch (error) {
-    if (error instanceof IndexerUnavailableError) {
-      unavailable(res, 'Credora indexer', error.message);
-      return;
-    }
-    throw error;
+    if (res.headersSent) return;
+    unavailable(res, error instanceof Error ? error.message : 'Wallet activity handler failed to load');
   }
-});
+}

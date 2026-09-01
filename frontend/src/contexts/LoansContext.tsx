@@ -55,7 +55,7 @@ async function pollLoan(
       const match = predicate(result.loans);
       if (match) return match;
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      lastError = error instanceof Error ? error : new Error('Indexer request failed');
     }
     await new Promise((resolve) => setTimeout(resolve, INDEX_POLL_MS));
   }
