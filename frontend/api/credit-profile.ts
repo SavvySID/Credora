@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient, type RecordDto } from './_lib/indexer';
-import { describeMethodology, scoreWallet } from './_lib/scoring';
-import { aiByAnalysisFromRecords, getCachedAiAssessment, type AiAssessmentView } from './_lib/riskEngine';
-import { ANALYSIS_TYPES, type AnalysisType } from './_lib/analysis';
-import { computeCapability } from './_lib/computeProbe';
-import { evaluateReputation } from './_lib/reputation';
-import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from './_lib/http';
+import { IndexerUnavailableError, indexerClient, type RecordDto } from './lib/indexer';
+import { describeMethodology, scoreWallet } from './lib/scoring';
+import { aiByAnalysisFromRecords, getCachedAiAssessment, type AiAssessmentView } from './lib/riskEngine';
+import { ANALYSIS_TYPES, type AnalysisType } from './lib/analysis';
+import { computeCapability } from './lib/computeProbe';
+import { evaluateReputation } from './lib/reputation';
+import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from './lib/http';
 
 function serializeAi(ai: AiAssessmentView) {
   return {

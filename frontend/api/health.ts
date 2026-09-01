@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient, indexerConfigured } from './_lib/indexer';
-import { probeCompute } from './_lib/computeProbe';
-import { methodGuard, noStore, withApiHandler } from './_lib/http';
+import { IndexerUnavailableError, indexerClient, indexerConfigured } from './lib/indexer';
+import { probeCompute } from './lib/computeProbe';
+import { methodGuard, noStore, withApiHandler } from './lib/http';
 
 /**
  * Real service status. Every field here is the result of an actual probe, so

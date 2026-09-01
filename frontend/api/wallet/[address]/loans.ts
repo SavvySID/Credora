@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { IndexerUnavailableError, indexerClient } from '../../_lib/indexer';
-import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../_lib/http';
+import { IndexerUnavailableError, indexerClient } from '../../lib/indexer';
+import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../lib/http';
 
 /**
  * Loans for a wallet, projected from indexed Loan.sol events and reconciled
