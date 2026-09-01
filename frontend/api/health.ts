@@ -1,3 +1,4 @@
+// @ts-nocheck — Vercel loads compiled CJS from api-lib/dist
 export default async function handler(
   req: { method?: string },
   res: {

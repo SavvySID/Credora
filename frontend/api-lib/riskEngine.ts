@@ -1,5 +1,5 @@
 import type { FeaturesDto, RecordDto } from './indexer';
-import { indexerClient } from './indexer';
+import { IndexerUnavailableError, indexerClient, indexerConfigured } from './indexer';
 import { assessBorrowerRisk, computeModelId, computeCapability } from './compute';
 import { SCORING_MODEL, describeMethodology, scoreWallet, type ScoreResult } from './scoring';
 import type { AiRiskOutput } from './riskSchema';
@@ -160,15 +160,20 @@ export async function getCachedAiAssessment(
   sourceDataHash: string,
   analysisType: AnalysisType = DEFAULT_ANALYSIS_TYPE,
 ): Promise<AiAssessmentView | null> {
-  if (!computeModelId()) return null;
-  const lookup = await indexerClient.assessmentCache(
-    wallet,
-    sourceDataHash,
-    'ai_risk_assessment',
-    modelKey(analysisType),
-  );
-  if (!lookup.hit || !lookup.record) return null;
-  return fromRecord(lookup.record, true, 0);
+  if (!computeModelId() || !indexerConfigured().ok) return null;
+  try {
+    const lookup = await indexerClient.assessmentCache(
+      wallet,
+      sourceDataHash,
+      'ai_risk_assessment',
+      modelKey(analysisType),
+    );
+    if (!lookup.hit || !lookup.record) return null;
+    return fromRecord(lookup.record, true, 0);
+  } catch (error) {
+    if (error instanceof IndexerUnavailableError) return null;
+    throw error;
+  }
 }
 
 /** Latest indexed AI record for this wallet + source hash + analysis type. */
@@ -246,33 +251,61 @@ export async function evaluateAiRisk(
   const outlook =
     analysisType === 'risk-outlook' ? parseRiskOutlook(inference.output.riskOutlook) : null;
 
-  const saved = await indexerClient.saveAssessment({
-    wallet,
-    eventType: 'ai_risk_assessment',
-    confidence: inference.output.confidence ?? 0,
-    model: computeModelId(),
-    methodology: `0G Compute structured risk JSON via ${inference.model ?? computeModelId()} (${SCORING_MODEL.id} baseline ${score.creditScore}/1000 ${score.creditBand}; ${analysisLabel(analysisType)})`,
-    sourceDataHash: hash,
-    deterministicScore: score.creditScore,
-    aiRiskScore: inference.output.riskScore,
-    aiRiskLevel: inference.output.riskLevel,
-    riskFactors: inference.output.keyRiskFactors,
+  const live: AiAssessmentView = {
+    available: true,
+    riskLevel: inference.output.riskLevel,
+    riskScore: inference.output.riskScore,
+    keyRiskFactors: inference.output.keyRiskFactors,
     positiveFactors: inference.output.positiveFactors,
     assessmentSummary: inference.output.assessmentSummary,
-    modelVersion: analysisType === 'general' ? 'router' : `router:${analysisType}`,
-    analysisType,
-    analysisLabel: analysisLabel(analysisType),
-    ...(outlook ? { riskOutlook: outlook } : {}),
-  });
-
-  return {
-    ...fromRecord(saved.record, false, inference.latencyMs),
+    confidence: inference.output.confidence ?? null,
     model: inference.model,
     latencyMs: inference.latencyMs,
+    blockedReason: null,
+    cached: false,
+    sourceDataHash: hash,
+    record: null,
     analysisType,
     analysisLabel: analysisLabel(analysisType),
     riskOutlook: outlook,
   };
+
+  if (!indexerConfigured().ok) {
+    return live;
+  }
+
+  try {
+    const saved = await indexerClient.saveAssessment({
+      wallet,
+      eventType: 'ai_risk_assessment',
+      confidence: inference.output.confidence ?? 0,
+      model: computeModelId(),
+      methodology: `0G Compute structured risk JSON via ${inference.model ?? computeModelId()} (${SCORING_MODEL.id} baseline ${score.creditScore}/1000 ${score.creditBand}; ${analysisLabel(analysisType)})`,
+      sourceDataHash: hash,
+      deterministicScore: score.creditScore,
+      aiRiskScore: inference.output.riskScore,
+      aiRiskLevel: inference.output.riskLevel,
+      riskFactors: inference.output.keyRiskFactors,
+      positiveFactors: inference.output.positiveFactors,
+      assessmentSummary: inference.output.assessmentSummary,
+      modelVersion: analysisType === 'general' ? 'router' : `router:${analysisType}`,
+      analysisType,
+      analysisLabel: analysisLabel(analysisType),
+      ...(outlook ? { riskOutlook: outlook } : {}),
+    });
+
+    return {
+      ...fromRecord(saved.record, false, inference.latencyMs),
+      model: inference.model,
+      latencyMs: inference.latencyMs,
+      analysisType,
+      analysisLabel: analysisLabel(analysisType),
+      riskOutlook: outlook,
+    };
+  } catch (error) {
+    if (error instanceof IndexerUnavailableError) return live;
+    throw error;
+  }
 }
 
 export { describeMethodology, scoreWallet, modelKey };

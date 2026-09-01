@@ -166,7 +166,8 @@ async function assessBorrowerRisk(userJson, analysisType = 'general') {
         { role: 'user', content: userJson },
     ];
     const withFormat = await chatCompletion(messages, true);
-    const completion = withFormat.ok || withFormat.status === null
+    // Hobby functions die at ~10s. A second router attempt after features fetch will be killed.
+    const completion = process.env.VERCEL || withFormat.ok || withFormat.status === null
         ? withFormat
         : await chatCompletion(messages, false);
     const latencyMs = Date.now() - started;

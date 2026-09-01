@@ -225,8 +225,9 @@ export async function assessBorrowerRisk(
   ];
 
   const withFormat = await chatCompletion(messages, true);
+  // Hobby functions die at ~10s. A second router attempt after features fetch will be killed.
   const completion =
-    withFormat.ok || withFormat.status === null
+    process.env.VERCEL || withFormat.ok || withFormat.status === null
       ? withFormat
       : await chatCompletion(messages, false);
 

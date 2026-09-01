@@ -17,5 +17,5 @@
     "noEmit": true
   },
   "include": ["./**/*.ts", "../api-lib/**/*.ts"],
-  "exclude": ["./**/*.test.ts", "../api-lib/**/*.test.ts"]
+  "exclude": ["./**/*.test.ts", "../api-lib/**/*.test.ts", "../api-lib/dist/**"]
 }

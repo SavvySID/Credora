@@ -112,12 +112,19 @@ function borrowerFacts(wallet, features, score, analysisType) {
     return facts;
 }
 async function getCachedAiAssessment(wallet, sourceDataHash, analysisType = analysis_1.DEFAULT_ANALYSIS_TYPE) {
-    if (!(0, compute_1.computeModelId)())
+    if (!(0, compute_1.computeModelId)() || !(0, indexer_1.indexerConfigured)().ok)
         return null;
-    const lookup = await indexer_1.indexerClient.assessmentCache(wallet, sourceDataHash, 'ai_risk_assessment', modelKey(analysisType));
-    if (!lookup.hit || !lookup.record)
-        return null;
-    return fromRecord(lookup.record, true, 0);
+    try {
+        const lookup = await indexer_1.indexerClient.assessmentCache(wallet, sourceDataHash, 'ai_risk_assessment', modelKey(analysisType));
+        if (!lookup.hit || !lookup.record)
+            return null;
+        return fromRecord(lookup.record, true, 0);
+    }
+    catch (error) {
+        if (error instanceof indexer_1.IndexerUnavailableError)
+            return null;
+        throw error;
+    }
 }
 /** Latest indexed AI record for this wallet + source hash + analysis type. */
 function aiFromRecordList(records, sourceDataHash, analysisType = analysis_1.DEFAULT_ANALYSIS_TYPE) {
@@ -174,30 +181,58 @@ async function evaluateAiRisk(wallet, features, score, analysisType = analysis_1
         return unavailable(inference.blockedReason ?? '0G Compute inference failed.', hash, analysisType);
     }
     const outlook = analysisType === 'risk-outlook' ? (0, analysis_1.parseRiskOutlook)(inference.output.riskOutlook) : null;
-    const saved = await indexer_1.indexerClient.saveAssessment({
-        wallet,
-        eventType: 'ai_risk_assessment',
-        confidence: inference.output.confidence ?? 0,
-        model: (0, compute_1.computeModelId)(),
-        methodology: `0G Compute structured risk JSON via ${inference.model ?? (0, compute_1.computeModelId)()} (${scoring_1.SCORING_MODEL.id} baseline ${score.creditScore}/1000 ${score.creditBand}; ${(0, analysis_1.analysisLabel)(analysisType)})`,
-        sourceDataHash: hash,
-        deterministicScore: score.creditScore,
-        aiRiskScore: inference.output.riskScore,
-        aiRiskLevel: inference.output.riskLevel,
-        riskFactors: inference.output.keyRiskFactors,
+    const live = {
+        available: true,
+        riskLevel: inference.output.riskLevel,
+        riskScore: inference.output.riskScore,
+        keyRiskFactors: inference.output.keyRiskFactors,
         positiveFactors: inference.output.positiveFactors,
         assessmentSummary: inference.output.assessmentSummary,
-        modelVersion: analysisType === 'general' ? 'router' : `router:${analysisType}`,
-        analysisType,
-        analysisLabel: (0, analysis_1.analysisLabel)(analysisType),
-        ...(outlook ? { riskOutlook: outlook } : {}),
-    });
-    return {
-        ...fromRecord(saved.record, false, inference.latencyMs),
+        confidence: inference.output.confidence ?? null,
         model: inference.model,
         latencyMs: inference.latencyMs,
+        blockedReason: null,
+        cached: false,
+        sourceDataHash: hash,
+        record: null,
         analysisType,
         analysisLabel: (0, analysis_1.analysisLabel)(analysisType),
         riskOutlook: outlook,
     };
+    if (!(0, indexer_1.indexerConfigured)().ok) {
+        return live;
+    }
+    try {
+        const saved = await indexer_1.indexerClient.saveAssessment({
+            wallet,
+            eventType: 'ai_risk_assessment',
+            confidence: inference.output.confidence ?? 0,
+            model: (0, compute_1.computeModelId)(),
+            methodology: `0G Compute structured risk JSON via ${inference.model ?? (0, compute_1.computeModelId)()} (${scoring_1.SCORING_MODEL.id} baseline ${score.creditScore}/1000 ${score.creditBand}; ${(0, analysis_1.analysisLabel)(analysisType)})`,
+            sourceDataHash: hash,
+            deterministicScore: score.creditScore,
+            aiRiskScore: inference.output.riskScore,
+            aiRiskLevel: inference.output.riskLevel,
+            riskFactors: inference.output.keyRiskFactors,
+            positiveFactors: inference.output.positiveFactors,
+            assessmentSummary: inference.output.assessmentSummary,
+            modelVersion: analysisType === 'general' ? 'router' : `router:${analysisType}`,
+            analysisType,
+            analysisLabel: (0, analysis_1.analysisLabel)(analysisType),
+            ...(outlook ? { riskOutlook: outlook } : {}),
+        });
+        return {
+            ...fromRecord(saved.record, false, inference.latencyMs),
+            model: inference.model,
+            latencyMs: inference.latencyMs,
+            analysisType,
+            analysisLabel: (0, analysis_1.analysisLabel)(analysisType),
+            riskOutlook: outlook,
+        };
+    }
+    catch (error) {
+        if (error instanceof indexer_1.IndexerUnavailableError)
+            return live;
+        throw error;
+    }
 }
