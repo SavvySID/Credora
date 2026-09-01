@@ -8,8 +8,16 @@
  */
 
 import { createHash } from 'node:crypto';
-import { formatEther } from 'ethers';
 import type { FeaturesDto, WalletSnapshotDto } from './indexer';
+
+function formatEther(wei: bigint): string {
+  const negative = wei < 0n;
+  const value = negative ? -wei : wei;
+  const whole = value / 1000000000000000000n;
+  const frac = (value % 1000000000000000000n).toString().padStart(18, '0').replace(/0+$/, '');
+  const formatted = frac ? `${whole.toString()}.${frac}` : whole.toString();
+  return negative ? `-${formatted}` : formatted;
+}
 
 const RPC_URL = process.env.OG_RPC_URL ?? 'https://evmrpc-testnet.0g.ai';
 const CHAIN_ID = Number.parseInt(process.env.OG_CHAIN_ID ?? '16602', 10);

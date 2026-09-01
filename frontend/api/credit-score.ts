@@ -1,9 +1,13 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handle } from '../api-lib/handlers/creditScore';
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+  req: { method?: string; query?: Record<string, unknown>; body?: unknown },
+  res: { headersSent?: boolean; status: (code: number) => { json: (body: unknown) => void } },
+) {
   try {
-    await handle(req, res);
+    const id = process.env.VERCEL
+      ? '../api-lib/dist/handlers/creditScore.js'
+      : '../api-lib/handlers/creditScore';
+    const mod = (await import(id)) as { handle: (r: typeof req, s: typeof res) => Promise<void> };
+    await mod.handle(req, res);
   } catch (error) {
     if (res.headersSent) return;
     res.status(503).json({

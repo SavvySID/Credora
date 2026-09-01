@@ -5,6 +5,8 @@ node_modules/
 # Build outputs
 build/
 dist/
+!frontend/api-lib/dist/
+!frontend/api-lib/dist/**
 .tmp/
 .temp/
 .cache/
