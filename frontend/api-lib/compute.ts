@@ -280,7 +280,7 @@ async function chatCompletion(
     const body: Record<string, unknown> = {
       model,
       temperature: 0,
-      max_tokens: 1600,
+      max_tokens: process.env.VERCEL ? 500 : 1600,
       reasoning_effort: 'low',
       messages,
     };

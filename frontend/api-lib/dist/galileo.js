@@ -27,7 +27,7 @@ const RPC_URL = process.env.OG_RPC_URL ?? 'https://evmrpc-testnet.0g.ai';
 const CHAIN_ID = Number.parseInt(process.env.OG_CHAIN_ID ?? '16602', 10);
 const EXPLORER_API = process.env.CHAINSCAN_API_URL ?? 'https://chainscan-galileo.0g.ai/open/api';
 const EXPLORER_KEY = process.env.CHAINSCAN_API_KEY ?? '';
-const TIMEOUT_MS = process.env.VERCEL ? 4_000 : 12_000;
+const TIMEOUT_MS = process.env.VERCEL ? 2_500 : 12_000;
 const LOAN_INDEXING = {
     available: false,
     blockedReason: 'Loan index lives on the Credora indexer worker. This deployment is reading Galileo RPC and Chain Scan directly.',

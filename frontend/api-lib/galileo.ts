@@ -25,7 +25,7 @@ const EXPLORER_API =
   process.env.CHAINSCAN_API_URL ?? 'https://chainscan-galileo.0g.ai/open/api';
 const EXPLORER_KEY = process.env.CHAINSCAN_API_KEY ?? '';
 
-const TIMEOUT_MS = process.env.VERCEL ? 4_000 : 12_000;
+const TIMEOUT_MS = process.env.VERCEL ? 2_500 : 12_000;
 
 const LOAN_INDEXING = {
   available: false as const,
