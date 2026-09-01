@@ -1,14 +1,16 @@
 import { initialize0G } from './0g-config';
-import { zeroGStorageService, UserData } from './0g-storage';
-import { zeroGComputeService, CreditScoreResult } from './0g-compute';
-import { zeroGPipelineService, CreditScoreUpdateEvent } from './0g-pipeline';
+import { zeroGStorageService, type UserData } from './0g-storage';
+import { zeroGComputeService } from './0g-compute';
+import { zeroGPipelineService, type CreditScoreUpdateEvent } from './0g-pipeline';
+import { api, type HealthDto, type VerificationState } from './api';
 
 export interface CreditScoreResponse {
   wallet: string;
-  creditScore: number; // 0-1000
+  creditScore: number;
+  creditBand?: 'Building' | 'Established' | 'Excellent';
   riskLevel: 'Low' | 'Medium' | 'High';
   confidence: number;
-  factors: any[];
+  factors: unknown[];
   walletData: {
     balance: string;
     transactionCount: number;
@@ -16,198 +18,131 @@ export interface CreditScoreResponse {
   };
   timestamp: string;
   modelVersion: string;
-  poweredBy: '0G AI/ML Engine';
+  /** Identifies the scoring method. Not a claim that the score is AI-generated. */
+  poweredBy: string;
+  methodology?: string;
+  trained?: boolean;
+  verification?: VerificationState | null;
+  narrative?: {
+    available: boolean;
+    text: string | null;
+    blockedReason: string | null;
+    model: string | null;
+  };
+  ai?: import('./api').CreditProfileDto['ai'];
+  reputation?: import('./api').CreditProfileDto['reputation']['earned'];
+}
+
+export interface ZeroGStatusSnapshot {
+  initialized: boolean;
+  pipelineConnected: boolean;
+  subscriberCount: number;
+  storageOnline: boolean;
+  computeOnline: boolean;
+  computeConfigured: boolean;
+  chainOnline: boolean;
+  verifiedRecords: number;
+  blockedReasons: string[];
 }
 
 export class ZeroGCreditScoreService {
   private static instance: ZeroGCreditScoreService;
-  private isInitialized: boolean = false;
-  
+  private isInitialized = false;
+  private lastHealth: HealthDto | null = null;
+
   private constructor() {}
-  
+
   public static getInstance(): ZeroGCreditScoreService {
     if (!ZeroGCreditScoreService.instance) {
       ZeroGCreditScoreService.instance = new ZeroGCreditScoreService();
     }
     return ZeroGCreditScoreService.instance;
   }
-  
-  /**
-   * Initialize all 0G services
-   */
+
   async initialize(): Promise<boolean> {
-    if (this.isInitialized) {
-      return true;
-    }
-    
-    try {
-      console.log('Initializing 0G Credit Score Service...');
-      
-      // Initialize 0G core services
-      const coreInitialized = await initialize0G();
-      if (!coreInitialized) {
-        throw new Error('Failed to initialize 0G core services');
-      }
-      
-      // Initialize pipeline for real-time updates
-      const pipelineInitialized = await zeroGPipelineService.initialize();
-      if (!pipelineInitialized) {
-        console.warn('Failed to initialize 0G Pipeline, continuing without real-time updates');
-      }
-      
-      this.isInitialized = true;
-      console.log('0G Credit Score Service initialized successfully');
-      return true;
-      
-    } catch (error) {
-      console.error('Failed to initialize 0G Credit Score Service:', error);
-      return false;
-    }
+    if (this.isInitialized) return true;
+
+    const storageReachable = await initialize0G();
+    await zeroGPipelineService.initialize();
+    this.isInitialized = storageReachable;
+    return this.isInitialized;
   }
-  
-  /**
-   * Get credit score for a wallet address using 0G AI/ML engine
-   */
+
   async getCreditScore(walletAddress: string): Promise<CreditScoreResponse> {
-    try {
-      // Ensure service is initialized
-      if (!this.isInitialized) {
-        await this.initialize();
-      }
-      
-      console.log(`Getting credit score for wallet: ${walletAddress}`);
-      
-      // Get or create user data from 0G storage
-      let userData = await zeroGStorageService.getUserData(walletAddress);
-      
-      if (!userData) {
-        // Create new user data if not exists
-        userData = await this.createUserData(walletAddress);
-      }
-      
-      // Run ML inference using 0G compute
-      const creditScoreResult = await zeroGComputeService.runCreditScoreInference(userData);
-      
-      // Update user data with new credit score
-      await this.updateUserDataWithCreditScore(walletAddress, creditScoreResult);
-      
-      // Publish real-time update via 0G pipeline
-      await zeroGPipelineService.publishCreditScoreUpdate(
-        walletAddress,
-        creditScoreResult.creditScore,
-        creditScoreResult.riskLevel,
-        creditScoreResult.confidence,
-        creditScoreResult.factors
-      );
-      
-      // Format response
-      const response: CreditScoreResponse = {
-        wallet: walletAddress,
-        creditScore: creditScoreResult.creditScore,
-        riskLevel: creditScoreResult.riskLevel,
-        confidence: creditScoreResult.confidence,
-        factors: creditScoreResult.factors,
-        walletData: {
-          balance: `${userData.balance} ETH`,
-          transactionCount: userData.transactionCount,
-          lastActivity: userData.lastActivity,
-        },
-        timestamp: creditScoreResult.inferenceTimestamp,
-        modelVersion: creditScoreResult.modelVersion,
-        poweredBy: '0G AI/ML Engine',
-      };
-      
-      console.log('Credit score generated successfully:', response);
-      return response;
-      
-    } catch (error) {
-      console.error('Failed to get credit score:', error);
-      throw new Error('Credit score generation failed');
+    if (!this.isInitialized) {
+      await this.initialize();
     }
+
+    let userData = await zeroGStorageService.getUserData(walletAddress);
+    if (!userData) {
+      userData = await this.createUserData(walletAddress);
+    }
+
+    const result = await zeroGComputeService.runCreditScoreInference(userData);
+
+    return {
+      wallet: walletAddress,
+      creditScore: result.creditScore,
+      riskLevel: result.riskLevel,
+      confidence: result.confidence,
+      factors: result.factors,
+      walletData: {
+        balance: result.walletData
+          ? `${result.walletData.balance} 0G`
+          : `${userData.balance} 0G`,
+        transactionCount: result.walletData?.transactionCount ?? userData.transactionCount,
+        lastActivity: result.walletData?.lastActivity ?? userData.lastActivity,
+      },
+      timestamp: result.inferenceTimestamp,
+      modelVersion: result.modelVersion,
+      poweredBy: result.trained
+        ? '0G Compute (trained model)'
+        : 'Credora on-chain model (deterministic, not trained)',
+      methodology: result.methodology,
+      trained: result.trained,
+      verification: result.verification ?? null,
+      narrative: result.narrative
+        ? {
+            available: result.narrative.available,
+            text: result.narrative.text,
+            blockedReason: result.narrative.blockedReason,
+            model: result.narrative.model,
+          }
+        : undefined,
+    };
   }
-  
-  /**
-   * Create new user data for a wallet
-   */
+
   private async createUserData(walletAddress: string): Promise<UserData> {
-    console.log(`Creating new user data for wallet: ${walletAddress}`);
-    
-    // Get transaction history from blockchain (mock for now)
+    const now = new Date().toISOString();
     const transactionHistory = await zeroGStorageService.getTransactionHistory(walletAddress);
-    
-    // Get lending history (mock for now)
     const lendingHistory = await zeroGStorageService.getLendingHistory(walletAddress);
-    
-    // Create user data
-    const userData: UserData = {
+
+    return {
       walletAddress,
-      balance: 0, // Will be updated by wallet provider
+      balance: 0,
       transactionCount: transactionHistory.length,
       transactionHistory,
       lendingHistory,
-      lastActivity: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      lastActivity: transactionHistory[0]?.timestamp ?? now,
+      createdAt: now,
+      updatedAt: now,
     };
-    
-    // Store in 0G storage
-    await zeroGStorageService.storeUserData(walletAddress, userData);
-    
-    return userData;
   }
-  
-  /**
-   * Update user data with new credit score
-   */
-  private async updateUserDataWithCreditScore(
-    walletAddress: string, 
-    creditScoreResult: CreditScoreResult
-  ): Promise<void> {
-    try {
-      const userData = await zeroGStorageService.getUserData(walletAddress);
-      if (userData) {
-        userData.updatedAt = new Date().toISOString();
-        await zeroGStorageService.storeUserData(walletAddress, userData);
-      }
-    } catch (error) {
-      console.error('Failed to update user data with credit score:', error);
-    }
-  }
-  
-  /**
-   * Subscribe to real-time credit score updates
-   */
+
   subscribeToCreditScoreUpdates(
     walletAddress: string,
-    callback: (event: CreditScoreUpdateEvent) => void
+    callback: (event: CreditScoreUpdateEvent) => void,
   ): () => void {
     return zeroGPipelineService.subscribeToCreditScoreUpdates(walletAddress, callback);
   }
-  
-  /**
-   * Update user's wallet balance
-   */
-  async updateWalletBalance(walletAddress: string, balance: number): Promise<boolean> {
-    try {
-      const userData = await zeroGStorageService.getUserData(walletAddress);
-      if (userData) {
-        userData.balance = balance;
-        userData.updatedAt = new Date().toISOString();
-        return await zeroGStorageService.storeUserData(walletAddress, userData);
-      }
-      return false;
-    } catch (error) {
-      console.error('Failed to update wallet balance:', error);
-      return false;
-    }
+
+  async updateWalletBalance(_walletAddress: string, _balance: number): Promise<boolean> {
+    return false;
   }
-  
-  /**
-   * Add a new transaction to user's history
-   */
+
   async addTransaction(
-    walletAddress: string,
-    transaction: {
+    _walletAddress: string,
+    _transaction: {
       hash: string;
       from: string;
       to: string;
@@ -216,47 +151,14 @@ export class ZeroGCreditScoreService {
       blockNumber: number;
       gasUsed: string;
       gasPrice: string;
-    }
+    },
   ): Promise<boolean> {
-    try {
-      // Store transaction in 0G storage
-      const stored = await zeroGStorageService.storeTransaction(walletAddress, transaction);
-      
-      if (stored) {
-        // Update user data
-        const userData = await zeroGStorageService.getUserData(walletAddress);
-        if (userData) {
-          userData.transactionHistory.push(transaction);
-          userData.transactionCount = userData.transactionHistory.length;
-          userData.lastActivity = transaction.timestamp;
-          userData.updatedAt = new Date().toISOString();
-          
-          await zeroGStorageService.storeUserData(walletAddress, userData);
-          
-          // Publish transaction update via pipeline
-          await zeroGPipelineService.publishTransactionUpdate(walletAddress, {
-            hash: transaction.hash,
-            from: transaction.from,
-            to: transaction.to,
-            value: transaction.value,
-            blockNumber: transaction.blockNumber,
-          });
-        }
-      }
-      
-      return stored;
-    } catch (error) {
-      console.error('Failed to add transaction:', error);
-      return false;
-    }
+    return false;
   }
-  
-  /**
-   * Add a new lending record
-   */
+
   async addLendingRecord(
-    walletAddress: string,
-    lendingRecord: {
+    _walletAddress: string,
+    _lendingRecord: {
       loanId: string;
       amount: number;
       interestRate: number;
@@ -264,51 +166,41 @@ export class ZeroGCreditScoreService {
       createdAt: string;
       dueDate: string;
       repaidAt?: string;
-    }
+    },
   ): Promise<boolean> {
-    try {
-      // Store lending record in 0G storage
-      const stored = await zeroGStorageService.storeLendingRecord(walletAddress, lendingRecord);
-      
-      if (stored) {
-        // Update user data
-        const userData = await zeroGStorageService.getUserData(walletAddress);
-        if (userData) {
-          userData.lendingHistory.push(lendingRecord);
-          userData.updatedAt = new Date().toISOString();
-          
-          await zeroGStorageService.storeUserData(walletAddress, userData);
-          
-          // Publish lending update via pipeline
-          await zeroGPipelineService.publishLendingUpdate(walletAddress, {
-            loanId: lendingRecord.loanId,
-            status: lendingRecord.status,
-            amount: lendingRecord.amount,
-            action: lendingRecord.status === 'active' ? 'created' : 
-                   lendingRecord.status === 'repaid' ? 'repaid' : 'defaulted',
-          });
-        }
-      }
-      
-      return stored;
-    } catch (error) {
-      console.error('Failed to add lending record:', error);
-      return false;
-    }
+    return false;
   }
-  
-  /**
-   * Get service status
-   */
-  getStatus(): {
-    initialized: boolean;
-    pipelineConnected: boolean;
-    subscriberCount: number;
-  } {
+
+  async refreshHealth(): Promise<ZeroGStatusSnapshot> {
+    try {
+      this.lastHealth = await api.health();
+    } catch {
+      this.lastHealth = null;
+    }
+    return this.getStatus();
+  }
+
+  getStatus(): ZeroGStatusSnapshot {
+    const health = this.lastHealth;
+    const blockedReasons: string[] = [];
+
+    if (health?.services.storage.writes && !health.services.storage.writes.available) {
+      blockedReasons.push(health.services.storage.writes.blockedReason ?? '0G Storage writes blocked');
+    }
+    if (health?.services.compute && !health.services.compute.configured) {
+      blockedReasons.push(health.services.compute.detail ?? '0G Compute not configured');
+    }
+
     return {
-      initialized: this.isInitialized,
+      initialized: health?.services.storage.online ?? false,
       pipelineConnected: zeroGPipelineService.getConnectionStatus(),
       subscriberCount: zeroGPipelineService.getSubscriberCount(),
+      storageOnline: health?.services.storage.online ?? false,
+      computeOnline: health?.services.compute.online ?? false,
+      computeConfigured: health?.services.compute.configured ?? false,
+      chainOnline: health?.services.chain.online ?? false,
+      verifiedRecords: health?.index?.verified ?? 0,
+      blockedReasons,
     };
   }
 }
