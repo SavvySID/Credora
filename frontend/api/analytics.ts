@@ -3,11 +3,10 @@ export default async function handler(
   res: { headersSent?: boolean; status: (code: number) => { json: (body: unknown) => void } },
 ) {
   try {
-    const id = process.env.VERCEL
-      ? '../api-lib/dist/handlers/analytics.js'
-      : '../api-lib/handlers/analytics';
-    const mod = (await import(id)) as { handle: (r: typeof req, s: typeof res) => Promise<void> };
-    await mod.handle(req, res);
+    const mod = process.env.VERCEL
+      ? await import('../api-lib/dist/handlers/analytics.js')
+      : await import('../api-lib/handlers/analytics');
+    await mod.handle(req as never, res as never);
   } catch (error) {
     if (res.headersSent) return;
     res.status(503).json({

@@ -6,14 +6,10 @@ export default async function handler(
   },
 ) {
   try {
-    const id = process.env.VERCEL
-      ? '../api-lib/dist/handlers/health.js'
-      : '../api-lib/handlers/health';
-    const mod = (await import(id)) as {
-      handle?: (r: typeof req, s: typeof res) => Promise<void>;
-    };
-    if (!mod.handle) throw new Error('Health handler export missing');
-    await mod.handle(req, res);
+    const mod = process.env.VERCEL
+      ? await import('../api-lib/dist/handlers/health.js')
+      : await import('../api-lib/handlers/health');
+    await mod.handle(req as never, res as never);
   } catch (error) {
     if (res.headersSent) return;
     const detail = error instanceof Error ? error.message : 'Health handler failed';
