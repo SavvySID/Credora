@@ -1,0 +1,279 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Light theme: warm paper canvas, white surfaces, charcoal ink. */
+  :root {
+    color-scheme: light;
+
+    --canvas: 246 245 241;
+    --canvas-sunken: 239 238 232;
+    --canvas-raised: 251 250 248;
+
+    --surface: 255 255 255;
+    --surface-muted: 250 249 246;
+    --surface-inset: 244 243 238;
+
+    --hairline: 231 228 219;
+    --hairline-strong: 216 212 200;
+    --hairline-soft: 240 238 231;
+
+    --ink: 20 22 26;
+    --ink-muted: 91 97 105;
+    --ink-soft: 134 141 150;
+    --ink-faint: 169 175 183;
+    --ink-inverse: 255 255 255;
+
+    --brand-50: 239 251 252;
+    --brand-600: 13 130 152;
+    --brand-700: 14 102 122;
+    --brand-800: 17 83 100;
+    --brand-900: 14 63 77;
+
+    --brandsolid: 14 63 77;
+    --brandsolid-hover: 17 83 100;
+    --brandsolid-fg: 255 255 255;
+    --brandpanel: 6 42 53;
+    --edge-brand: 214 245 247;
+
+    --positive-50: 233 246 240;
+    --positive-100: 202 234 221;
+    --positive-500: 18 128 92;
+    --positive-600: 14 106 76;
+    --positive-700: 11 84 60;
+
+    --caution-50: 253 245 230;
+    --caution-100: 250 232 200;
+    --caution-500: 176 111 14;
+    --caution-600: 148 92 10;
+    --caution-700: 119 74 8;
+
+    --critical-50: 253 240 238;
+    --critical-100: 250 219 215;
+    --critical-500: 190 55 43;
+    --critical-600: 162 44 34;
+    --critical-700: 131 36 28;
+
+    --info-50: 238 242 254;
+    --info-100: 219 227 252;
+    --info-500: 60 92 205;
+    --info-600: 48 76 176;
+    --info-700: 38 60 142;
+
+    --shadow-color: 20 22 26;
+    --shadow-a1: 0.04;
+    --shadow-a2: 0.08;
+    --shadow-a3: 0.1;
+    --shadow-a4: 0.14;
+
+    --chart-line: 13 130 152;
+    --logo-bg: 14 63 77;
+    --glass: 255 255 255;
+    --glass-a: 0.72;
+    --credora-focus: rgb(13 130 152);
+  }
+
+  /* Dark theme: cool near-black canvas, raised graphite surfaces, luminous brand. */
+  .dark {
+    color-scheme: dark;
+
+    --canvas: 12 14 17;
+    --canvas-sunken: 8 9 11;
+    --canvas-raised: 24 27 32;
+
+    --surface: 23 26 31;
+    --surface-muted: 28 32 37;
+    --surface-inset: 34 38 44;
+
+    --hairline: 42 47 54;
+    --hairline-strong: 60 66 75;
+    --hairline-soft: 33 37 43;
+
+    --ink: 237 239 242;
+    --ink-muted: 160 167 176;
+    --ink-soft: 124 132 141;
+    --ink-faint: 98 105 114;
+    --ink-inverse: 12 14 17;
+
+    --brand-50: 8 46 55;
+    --brand-600: 63 192 206;
+    --brand-700: 123 217 226;
+    --brand-800: 175 234 239;
+    --brand-900: 214 245 247;
+
+    --brandsolid: 22 162 180;
+    --brandsolid-hover: 63 192 206;
+    --brandsolid-fg: 5 32 38;
+    --brandpanel: 9 48 59;
+    --edge-brand: 17 76 90;
+
+    --positive-50: 12 42 33;
+    --positive-100: 19 62 48;
+    --positive-500: 22 160 110;
+    --positive-600: 74 205 154;
+    --positive-700: 138 224 189;
+
+    --caution-50: 48 34 10;
+    --caution-100: 70 50 15;
+    --caution-500: 197 128 22;
+    --caution-600: 233 174 76;
+    --caution-700: 245 207 146;
+
+    --critical-50: 50 21 19;
+    --critical-100: 73 30 26;
+    --critical-500: 203 65 52;
+    --critical-600: 241 136 124;
+    --critical-700: 249 183 174;
+
+    --info-50: 23 31 60;
+    --info-100: 32 44 84;
+    --info-500: 82 112 220;
+    --info-600: 148 170 242;
+    --info-700: 192 206 249;
+
+    --shadow-color: 0 0 0;
+    --shadow-a1: 0.3;
+    --shadow-a2: 0.4;
+    --shadow-a3: 0.5;
+    --shadow-a4: 0.6;
+
+    --chart-line: 45 190 208;
+    --logo-bg: 13 78 94;
+    --glass: 23 26 31;
+    --glass-a: 0.72;
+    --credora-focus: rgb(63 192 206);
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Financial figures must align across rows, so numerals are always tabular. */
+  .tabular,
+  table,
+  input[type='number'] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display text-ink;
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--credora-focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: theme('colors.brand.200');
+    color: theme('colors.brand.950');
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.hairline.strong');
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.ink.faint');
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* RainbowKit is themed from JS; these only align the trigger button with our system. */
+  [data-rk] .cd-connect button {
+    font-family: theme('fontFamily.sans');
+    font-weight: 600;
+  }
+}
+
+@layer utilities {
+  .cd-hairline {
+    @apply border border-hairline;
+  }
+
+  /* Frosted panel used for sticky chrome and floating overlays only. */
+  .cd-glass {
+    background: rgb(var(--glass) / var(--glass-a));
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+
+  .cd-glass-dark {
+    background: rgba(6, 42, 53, 0.6);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+  }
+
+  .cd-grid-texture {
+    background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+
+  .cd-scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .cd-scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .cd-safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+
+  /* Theme transition is opt-in so first paint and route changes stay instant. */
+  .cd-theme-transition,
+  .cd-theme-transition *,
+  .cd-theme-transition *::before,
+  .cd-theme-transition *::after {
+    transition:
+      background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      color 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      fill 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      stroke 220ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+    transition-delay: 0ms !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
