@@ -7,7 +7,8 @@
 
 const INDEXER_URL = process.env.INDEXER_URL ?? 'http://localhost:3200';
 const SHARED_SECRET = process.env.INDEXER_SHARED_SECRET ?? '';
-const TIMEOUT_MS = Number.parseInt(process.env.INDEXER_TIMEOUT_MS ?? '20000', 10);
+const requestedTimeout = Number.parseInt(process.env.INDEXER_TIMEOUT_MS ?? '20000', 10);
+const TIMEOUT_MS = process.env.VERCEL ? Math.min(requestedTimeout || 8000, 8000) : requestedTimeout || 20000;
 
 export class IndexerUnavailableError extends Error {
   constructor(
@@ -24,6 +25,19 @@ export function indexerConfigured(): { ok: boolean; reason: string | null } {
     return {
       ok: false,
       reason: 'INDEXER_SHARED_SECRET is not set on the API deployment.',
+    };
+  }
+  if (/your-indexer-host/i.test(INDEXER_URL)) {
+    return {
+      ok: false,
+      reason: 'INDEXER_URL is still the placeholder host. Unset it until the indexer has a public https URL.',
+    };
+  }
+  if (process.env.VERCEL && /localhost|127\.0\.0\.1/.test(INDEXER_URL)) {
+    return {
+      ok: false,
+      reason:
+        'INDEXER_URL points at localhost; Vercel cannot reach your PC. Host the indexer and set INDEXER_URL to its public https URL.',
     };
   }
   return { ok: true, reason: null };

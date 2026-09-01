@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IndexerUnavailableError, indexerClient } from '../../_lib/indexer';
-import { cacheFor, methodGuard, readAddress, unavailable } from '../../_lib/http';
+import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../_lib/http';
 
 /**
  * Real wallet state from 0G Galileo: balance and nonce from the chain RPC,
@@ -10,7 +10,7 @@ import { cacheFor, methodGuard, readAddress, unavailable } from '../../_lib/http
  * set, so the UI can say the history is unknown instead of showing an empty
  * list as though the wallet were inactive.
  */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ['GET'])) return;
 
   const address = readAddress(req, res);
@@ -27,4 +27,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     throw error;
   }
-}
+});

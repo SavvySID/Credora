@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IndexerUnavailableError, indexerClient } from '../_lib/indexer';
-import { cacheFor, methodGuard, noStore, unavailable } from '../_lib/http';
+import { cacheFor, methodGuard, noStore, unavailable, withApiHandler } from '../_lib/http';
 
 /**
  * Retrieves a Credora record from 0G Storage by root hash and verifies it by
@@ -10,7 +10,7 @@ import { cacheFor, methodGuard, noStore, unavailable } from '../_lib/http';
  * means the record could not be retrieved or did not verify, and the caller
  * must not present it as verified.
  */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ['GET'])) return;
 
   const raw = Array.isArray(req.query.rootHash) ? req.query.rootHash[0] : req.query.rootHash;
@@ -48,4 +48,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     throw error;
   }
-}
+});

@@ -1,13 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IndexerUnavailableError, indexerClient, indexerConfigured } from './_lib/indexer';
 import { probeCompute } from './_lib/compute';
-import { methodGuard, noStore } from './_lib/http';
+import { methodGuard, noStore, withApiHandler } from './_lib/http';
 
 /**
  * Real service status. Every field here is the result of an actual probe, so
  * the UI status indicators reflect reachability rather than a constant.
  */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ['GET'])) return;
 
   const configured = indexerConfigured();
@@ -86,4 +86,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     capabilities: upstream?.capabilities ?? null,
     index: upstream?.index ?? null,
   });
-}
+});

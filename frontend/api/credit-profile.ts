@@ -5,7 +5,7 @@ import { aiByAnalysisFromRecords, getCachedAiAssessment, type AiAssessmentView }
 import { ANALYSIS_TYPES, type AnalysisType } from './_lib/analysis';
 import { computeCapability } from './_lib/compute';
 import { evaluateReputation } from './_lib/reputation';
-import { methodGuard, noStore, readAddress, unavailable } from './_lib/http';
+import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from './_lib/http';
 
 function serializeAi(ai: AiAssessmentView) {
   return {
@@ -58,7 +58,7 @@ function historyPoint(record: RecordDto) {
   };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ['GET'])) return;
 
   const wallet = readAddress(req, res);
@@ -198,4 +198,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       loanIndexing: features.loanIndexing,
     },
   });
-}
+});

@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IndexerUnavailableError, indexerClient } from './_lib/indexer';
-import { methodGuard, noStore, unavailable } from './_lib/http';
+import { methodGuard, noStore, unavailable, withApiHandler } from './_lib/http';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ['GET'])) return;
 
   try {
@@ -16,4 +16,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     throw error;
   }
-}
+});

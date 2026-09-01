@@ -58,7 +58,9 @@ export function ErrorState({
       </span>
       <h4 className="text-base font-semibold">{title}</h4>
       {description ? (
-        <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-ink-muted">{description}</p>
+        <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-ink-muted">
+          {typeof description === 'string' ? description : String(description)}
+        </p>
       ) : null}
       {onRetry ? (
         <Button

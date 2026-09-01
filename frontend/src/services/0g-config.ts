@@ -10,11 +10,25 @@ const env = (key: string): string | undefined => {
   return value && value.trim() !== '' ? value.trim() : undefined;
 };
 
+function publicStreamUrl(): string | null {
+  const configured = env('VITE_INDEXER_STREAM_URL');
+  if (!configured) return import.meta.env.DEV ? 'http://localhost:3200/stream' : null;
+  if (/your-indexer-host/i.test(configured)) return null;
+  if (import.meta.env.PROD && /localhost|127\.0\.0\.1/.test(configured)) return null;
+  try {
+    const parsed = new URL(configured);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return configured.replace(/\/$/, '');
+  } catch {
+    return null;
+  }
+}
+
 export const OG_CHAIN_ID = Number.parseInt(env('VITE_0G_CHAIN_ID') ?? '16602', 10);
 
 export const publicConfig = {
   apiBaseUrl: (env('VITE_API_BASE_URL') ?? '/api').replace(/\/$/, ''),
-  streamUrl: env('VITE_INDEXER_STREAM_URL') ?? 'http://localhost:3200/stream',
+  streamUrl: publicStreamUrl(),
   loanContractAddress: env('VITE_LOAN_CONTRACT_ADDRESS') ?? null,
   chainId: Number.isFinite(OG_CHAIN_ID) ? OG_CHAIN_ID : 16602,
   explorerUrl: env('VITE_0G_EXPLORER_URL') ?? 'https://chainscan-galileo.0g.ai',

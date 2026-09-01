@@ -1,5 +1,24 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+/** Keep serverless functions from crashing as FUNCTION_INVOCATION_FAILED. */
+export function withApiHandler(
+  handler: (req: VercelRequest, res: VercelResponse) => void | Promise<void>,
+) {
+  return async (req: VercelRequest, res: VercelResponse) => {
+    try {
+      await handler(req, res);
+    } catch (error) {
+      if (res.headersSent) return;
+      unavailable(
+        res,
+        'Credora API',
+        error instanceof Error ? error.message : String(error),
+        500,
+      );
+    }
+  };
+}
+
 export function methodGuard(
   req: VercelRequest,
   res: VercelResponse,

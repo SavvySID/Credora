@@ -78,6 +78,7 @@ export class ZeroGPipelineService {
 
   private ensureStream(walletAddress: string): void {
     if (typeof window === 'undefined' || typeof EventSource === 'undefined') return;
+    if (!publicConfig.streamUrl) return;
     if (this.source && this.watchedWallet === walletAddress.toLowerCase()) return;
 
     this.disconnectStream();

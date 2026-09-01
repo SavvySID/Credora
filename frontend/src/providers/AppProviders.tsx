@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
 import { RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
-import { config } from '@/config/wagmi';
+import { config, ogGalileo } from '@/config/wagmi';
 import { ActivityProvider } from '@/contexts/ActivityContext';
 import { CreditProvider } from '@/contexts/CreditContext';
 import { LoansProvider } from '@/contexts/LoansContext';
@@ -41,7 +41,7 @@ function WalletUi({ children }: { children: ReactNode }) {
   const { theme } = useTheme();
 
   return (
-    <RainbowKitProvider theme={RAINBOW_THEMES[theme]} modalSize="compact">
+    <RainbowKitProvider theme={RAINBOW_THEMES[theme]} modalSize="compact" initialChain={ogGalileo}>
       {children}
     </RainbowKitProvider>
   );

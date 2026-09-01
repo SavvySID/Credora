@@ -1,6 +1,5 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { defineChain, type Address } from 'viem';
-import { mainnet, polygon, optimism, arbitrum, base, sepolia } from 'wagmi/chains';
 import { publicConfig } from '@/services/0g-config';
 
 export const ogGalileo = defineChain({
@@ -23,8 +22,7 @@ export const deployedLoanContract: Address | null = publicConfig.loanContractAdd
 
 export const config = getDefaultConfig({
   appName: 'Credora',
-  // WalletConnect project IDs are public client identifiers, not secrets.
-  projectId: publicConfig.walletConnectProjectId || 'c4f79cc821944d9680842e34466bfbd9',
-  chains: [ogGalileo, sepolia, mainnet, polygon, optimism, arbitrum, base],
-  ssr: true,
+  projectId: publicConfig.walletConnectProjectId || '61504cb93d71213589068e461ce421ad',
+  chains: [ogGalileo],
+  ssr: false,
 });

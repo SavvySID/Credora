@@ -20,7 +20,23 @@ export class ApiUnavailableError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+function errorText(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (value && typeof value === 'object') {
+    const rec = value as Record<string, unknown>;
+    if (typeof rec.detail === 'string' && rec.detail.trim()) return rec.detail.trim();
+    if (typeof rec.message === 'string' && rec.message.trim()) return rec.message.trim();
+    if (typeof rec.error === 'string' && rec.error.trim()) return rec.error.trim();
+  }
+  if (value instanceof Error && value.message) return value.message;
+  return fallback;
+}
+
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  opts: { acceptStatuses?: number[] } = {},
+): Promise<T> {
   const url = `${publicConfig.apiBaseUrl}${path}`;
 
   let response: Response;
@@ -39,17 +55,32 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     );
   }
 
-  const payload = (await response.json().catch(() => null)) as
-    | (T & { error?: string; service?: string; detail?: string; message?: string })
-    | null;
+  const raw = await response.text().catch(() => '');
+  let payload: (T & { error?: unknown; service?: string; detail?: unknown; message?: unknown }) | null =
+    null;
+  if (raw) {
+    try {
+      payload = JSON.parse(raw) as T & {
+        error?: unknown;
+        service?: string;
+        detail?: unknown;
+        message?: unknown;
+      };
+    } catch {
+      payload = null;
+    }
+  }
 
-  if (!response.ok) {
+  if (!response.ok && !opts.acceptStatuses?.includes(response.status)) {
     const service = payload?.service ?? 'Credora API';
-    const detail = payload?.detail ?? payload?.message ?? payload?.error ?? `HTTP ${response.status}`;
+    const detail = errorText(
+      payload?.detail ?? payload?.message ?? payload?.error ?? raw,
+      `HTTP ${response.status}`,
+    );
     throw new ApiUnavailableError(detail, response.status, service);
   }
 
-  return payload as T;
+  return (payload ?? ({} as T)) as T;
 }
 
 export interface VerificationState {
@@ -344,7 +375,7 @@ export function creditAiFromRiskAssessment(result: RiskAssessmentDto): CreditPro
 }
 
 export const api = {
-  health: () => request<HealthDto>('/health'),
+  health: () => request<HealthDto>('/health', {}, { acceptStatuses: [503] }),
 
   creditScore: (address: string) =>
     request<CreditScoreDto>(`/credit-score?address=${encodeURIComponent(address)}`),

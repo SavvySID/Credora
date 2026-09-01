@@ -1,13 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IndexerUnavailableError, indexerClient } from '../../_lib/indexer';
-import { cacheFor, methodGuard, readAddress, unavailable } from '../../_lib/http';
+import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../_lib/http';
 
 /**
  * Credora records for a wallet, each carrying its real verification state.
  * Only records with `verification.status === 'verified'` have been read back
  * from 0G Storage and hash-checked.
  */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ['GET'])) return;
 
   const address = readAddress(req, res);
@@ -33,4 +33,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     throw error;
   }
-}
+});

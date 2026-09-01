@@ -174,7 +174,9 @@ export function CreditProvider({ children }: { children: ReactNode }) {
       });
     } catch (err) {
       if (loadGeneration.current !== gen) return;
-      const message = err instanceof Error ? err.message : 'Failed to fetch credit score';
+      const message = err instanceof Error && err.message && err.message !== '[object Object]'
+        ? err.message
+        : 'Failed to fetch credit score';
       setError(message);
       toast.error(message);
     } finally {

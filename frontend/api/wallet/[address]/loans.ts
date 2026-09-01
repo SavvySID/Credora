@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IndexerUnavailableError, indexerClient } from '../../_lib/indexer';
-import { cacheFor, methodGuard, readAddress, unavailable } from '../../_lib/http';
+import { cacheFor, methodGuard, readAddress, unavailable, withApiHandler } from '../../_lib/http';
 
 /**
  * Loans for a wallet, projected from indexed Loan.sol events and reconciled
@@ -10,7 +10,7 @@ import { cacheFor, methodGuard, readAddress, unavailable } from '../../_lib/http
  * false` with a reason and an empty list. Empty means "no on-chain loans",
  * never "here is a sample loan".
  */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ['GET'])) return;
 
   const address = readAddress(req, res);
@@ -27,4 +27,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     throw error;
   }
-}
+});

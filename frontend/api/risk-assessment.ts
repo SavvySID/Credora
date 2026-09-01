@@ -3,7 +3,7 @@ import { IndexerUnavailableError, indexerClient } from './_lib/indexer';
 import { scoreWallet } from './_lib/scoring';
 import { aiFromRecordList, evaluateAiRisk, getCachedAiAssessment } from './_lib/riskEngine';
 import { parseAnalysisType } from './_lib/analysis';
-import { methodGuard, noStore, readAddress, unavailable } from './_lib/http';
+import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from './_lib/http';
 
 function readRequestedAnalysis(req: VercelRequest) {
   const fromQuery = Array.isArray(req.query.analysisType)
@@ -13,7 +13,7 @@ function readRequestedAnalysis(req: VercelRequest) {
   return parseAnalysisType(body?.analysisType ?? fromQuery);
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ['GET', 'POST'])) return;
 
   const wallet = readAddress(req, res);
@@ -111,4 +111,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     deterministicScore: score.creditScore,
     creditBand: score.creditBand,
   });
-}
+});

@@ -2,12 +2,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { IndexerUnavailableError, indexerClient } from './_lib/indexer';
 import { SCORING_MODEL, describeMethodology, scoreWallet } from './_lib/scoring';
 import { explainScore } from './_lib/compute';
-import { methodGuard, noStore, readAddress, unavailable } from './_lib/http';
+import { methodGuard, noStore, readAddress, unavailable, withApiHandler } from './_lib/http';
 
 /**
  * Deterministic Credora score. 0G Compute is not used unless explain=true.
  */
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default withApiHandler(async function handler(req: VercelRequest, res: VercelResponse) {
   if (!methodGuard(req, res, ['GET', 'POST'])) return;
 
   const wallet = readAddress(req, res);
@@ -111,4 +111,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       : { error: recordError },
   });
-}
+});
