@@ -1,39 +1,40 @@
 {
   "name": "credora-frontend",
   "version": "1.0.0",
-  "description": "Credora AI-powered decentralized lending frontend",
+  "description": "Credora app — wallet UI and API layer for Galileo credit intelligence",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p api/tsconfig.json",
+    "test:api": "npx --yes tsx --test api/_lib/riskSchema.test.ts api/_lib/scoring.test.ts api/_lib/compute.test.ts api/_lib/analysis.test.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@0glabs/0g-serving-broker": "^0.3.3",
-    "@0glabs/0g-ts-sdk": "^0.3.1",
     "@rainbow-me/rainbowkit": "^2.2.8",
     "@tanstack/react-query": "^5.85.6",
-    "@types/crypto-js": "^4.2.2",
-    "clsx": "^2.0.0",
-    "crypto-js": "^4.2.0",
+    "clsx": "^2.1.1",
     "ethers": "^6.8.1",
     "lucide-react": "^0.263.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",
     "react-router-dom": "^6.8.1",
-    "socket.io-client": "^4.7.2",
     "viem": "^2.36.0",
-    "wagmi": "^2.16.9"
+    "wagmi": "^2.16.9",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "@vercel/node": "^10.0.0",
     "@vitejs/plugin-react": "^5.0.2",
     "autoprefixer": "^10.4.14",
+    "dotenv": "^17.4.2",
     "eslint": "^8.45.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
@@ -42,15 +43,6 @@
     "typescript": "^5.0.2",
     "vite": "^7.1.3"
   },
-  "keywords": [
-    "react",
-    "typescript",
-    "ethereum",
-    "defi",
-    "lending",
-    "ai",
-    "credora"
-  ],
   "author": "Credora Team",
   "license": "MIT"
 }
