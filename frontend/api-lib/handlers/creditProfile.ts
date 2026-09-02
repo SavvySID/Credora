@@ -112,7 +112,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
       model: null,
       latencyMs: null,
       blockedReason: compute.available
-        ? 'No cached AI assessment for the current source data. Request a risk assessment to call 0G Compute.'
+        ? 'Run AI assessment to call 0G Compute for this wallet.'
         : compute.blockedReason,
       cached: false,
       sourceDataHash: hash,

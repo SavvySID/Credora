@@ -215,21 +215,22 @@ export async function assessBorrowerRisk(
     analysisType === 'risk-outlook'
       ? ' Also include riskOutlook as exactly Improving, Stable, Deteriorating, or Insufficient Data.'
       : '';
-  const system =
-    analysisType === 'general'
-      ? RISK_SYSTEM
+  const specialized =
+    process.env.VERCEL
+      ? `${RISK_SYSTEM} Focus: ${ANALYSIS_FOCUS[analysisType]} JSON keys: riskLevel, riskScore, keyRiskFactors, positiveFactors, assessmentSummary.${outlookHint}`
       : `${RISK_SYSTEM} Analytical focus: ${ANALYSIS_FOCUS[analysisType]} ${RISK_JSON_SHAPE}${outlookHint} Use only the provided facts.`;
+  const system = analysisType === 'general' ? RISK_SYSTEM : specialized;
   const messages = [
     { role: 'system', content: system },
     { role: 'user', content: userJson },
   ];
 
-  const withFormat = await chatCompletion(messages, true);
+  const withFormat = await chatCompletion(messages, true, analysisType);
   // Hobby functions die at ~10s. A second router attempt after features fetch will be killed.
   const completion =
     process.env.VERCEL || withFormat.ok || withFormat.status === null
       ? withFormat
-      : await chatCompletion(messages, false);
+      : await chatCompletion(messages, false, analysisType);
 
   const latencyMs = Date.now() - started;
 
@@ -271,16 +272,22 @@ export async function assessBorrowerRisk(
 async function chatCompletion(
   messages: Array<{ role: string; content: string }>,
   jsonMode: boolean,
+  analysisType: AnalysisType = 'general',
 ): Promise<{ ok: true; text: string; model: string | null; status: number } | { ok: false; reason: string; status: number | null }> {
   const { routerUrl, apiKey, model, timeoutMs } = computeEnv();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const maxTokens = process.env.VERCEL
+    ? analysisType === 'general'
+      ? 400
+      : 280
+    : 1600;
 
   try {
     const body: Record<string, unknown> = {
       model,
       temperature: 0,
-      max_tokens: process.env.VERCEL ? 500 : 1600,
+      max_tokens: maxTokens,
       reasoning_effort: 'low',
       messages,
     };

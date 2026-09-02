@@ -15,7 +15,7 @@ function computeEnv() {
         apiKey: process.env.ZG_COMPUTE_API_KEY ?? '',
         model: process.env.ZG_COMPUTE_MODEL ?? '',
         // Hobby functions die at ~10s. A 25s router wait becomes FUNCTION_INVOCATION_FAILED.
-        timeoutMs: vercelCap(requested, 8_000),
+        timeoutMs: vercelCap(requested, 9_000),
     };
 }
 function computeModelId() {

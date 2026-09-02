@@ -45,8 +45,17 @@ function greeting(): string {
 export default function Dashboard() {
   const { account, balance, balanceSymbol, transactionCount, chainName, isLoading: walletLoading } =
     useWallet();
-  const { profile, history, isLoading, isRunningAi, error, refresh, isRealTimeConnected } =
-    useCredit();
+  const {
+    profile,
+    history,
+    isLoading,
+    isRunningAi,
+    error,
+    refresh,
+    isRealTimeConnected,
+    displayedAi,
+    requestAiAssessment,
+  } = useCredit();
   const { loans, activeLoans } = useLoans();
   const { activities } = useActivity();
 
@@ -96,7 +105,9 @@ export default function Dashboard() {
         <PageHeader
           eyebrow={
             <>
-              <span className="text-sm text-ink-muted">{greeting()}</span>
+              <span className="text-base font-medium text-brand-500 dark:text-brand-400">
+                {greeting()}
+              </span>
               {account ? <AddressChip address={account} /> : null}
             </>
           }
@@ -257,7 +268,12 @@ export default function Dashboard() {
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">
-          <AiRiskCard compact loading={isRunningAi} ai={profile?.ai} />
+          <AiRiskCard
+            compact
+            loading={isRunningAi}
+            ai={displayedAi}
+            onRetry={requestAiAssessment}
+          />
           <Card>
             <CardHeader title="Reputation" description="Earned from real on-chain and 0G-verified conditions." />
             <CardBody>

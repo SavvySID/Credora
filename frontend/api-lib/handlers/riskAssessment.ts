@@ -85,7 +85,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
     res.status(200).json({
       wallet,
       available: false,
-      blockedReason: `No cached ${analysisType} AI assessment for the current sourceDataHash. POST to run 0G Compute.`,
+      blockedReason: `Run AI assessment to call 0G Compute for this wallet.`,
       cached: false,
       sourceDataHash: hash,
       deterministicScore: score.creditScore,

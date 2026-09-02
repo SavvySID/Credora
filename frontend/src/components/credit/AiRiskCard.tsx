@@ -9,6 +9,7 @@ import type { Tone } from '@/lib/credit';
 import { aiRiskTone } from '@/lib/credit';
 import { formatDateTime, formatPercent } from '@/lib/format';
 import { ANALYSIS_OPTIONS, analysisLabel, type AnalysisType } from '@/lib/analysis';
+import { isPendingAi } from '@/lib/aiAssessment';
 import type { CreditProfileDto } from '@/services/api';
 
 export type AiRiskView = Pick<
@@ -128,6 +129,12 @@ export function AiRiskCard({
   }
 
   if (!ai || !ai.available) {
+    const pending = isPendingAi(ai);
+    const noticeTitle = pending ? 'Ready for 0G Compute' : 'Could not complete assessment';
+    const noticeBody = pending
+      ? `Click Run AI assessment to generate a ${selectedLabel.toLowerCase()} from your on-chain facts. The Credora score stays deterministic and is not AI-generated.`
+      : (ai?.blockedReason ?? '0G Compute did not return a result. Try again.');
+
     return (
       <Card>
         <CardHeader
@@ -144,14 +151,12 @@ export function AiRiskCard({
               running={false}
             />
           ) : null}
-          <InlineNotice tone="info" title="AI assessment unavailable">
-            {ai?.blockedReason ??
-              `No ${selectedLabel} for this wallet yet. Run AI assessment to call 0G Compute.`}{' '}
-            The Credora score remains deterministic and is not AI-generated.
+          <InlineNotice tone={pending ? 'info' : 'caution'} title={noticeTitle}>
+            {noticeBody}
           </InlineNotice>
           {!showControls && onRetry ? (
             <Button variant="secondary" size="sm" onClick={onRetry} iconLeft={<Cpu className="h-4 w-4" />}>
-              Retry AI assessment
+              Run AI assessment
             </Button>
           ) : null}
         </CardBody>

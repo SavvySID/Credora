@@ -21,6 +21,12 @@ import {
   type CreditProfileDto,
 } from '@/services/api';
 import { DEFAULT_ANALYSIS_TYPE, type AnalysisType } from '@/lib/analysis';
+import {
+  applySessionAiAssessments,
+  mergeAssessmentIntoProfile,
+  mergePreservingSessionAi,
+  writeSessionAiAssessment,
+} from '@/lib/aiAssessment';
 import { useWallet } from '@/hooks/useWallet';
 import { useActivity } from './ActivityContext';
 
@@ -112,11 +118,7 @@ function mergeAssessment(
   type: AnalysisType,
   ai: CreditProfileDto['ai'],
 ): CreditProfileDto {
-  return {
-    ...intel,
-    ai: type === 'general' ? ai : intel.ai,
-    aiByAnalysis: { ...intel.aiByAnalysis, [type]: ai },
-  };
+  return mergeAssessmentIntoProfile(intel, type, ai);
 }
 
 export function CreditProvider({ children }: { children: ReactNode }) {
@@ -139,17 +141,23 @@ export function CreditProvider({ children }: { children: ReactNode }) {
   const analysisTypeRef = useRef(analysisType);
   analysisTypeRef.current = analysisType;
   const loadGeneration = useRef(0);
+  const intelligenceRef = useRef<CreditProfileDto | null>(null);
 
   const setAnalysisType = useCallback((type: AnalysisType) => {
     setAnalysisTypeState(type);
   }, []);
 
-  const applyIntelligence = useCallback((intel: CreditProfileDto) => {
+  const applyIntelligence = useCallback((incoming: CreditProfileDto) => {
     const current = accountRef.current;
-    if (!current || current.toLowerCase() !== intel.wallet.toLowerCase()) return;
-    setIntelligence(intel);
-    setProfile(profileFromIntelligence(intel));
-    setHistory(historyFromProfile(intel));
+    if (!current || current.toLowerCase() !== incoming.wallet.toLowerCase()) return;
+    const merged = mergePreservingSessionAi(
+      applySessionAiAssessments(incoming, current),
+      intelligenceRef.current,
+    );
+    intelligenceRef.current = merged;
+    setIntelligence(merged);
+    setProfile(profileFromIntelligence(merged));
+    setHistory(historyFromProfile(merged));
   }, []);
 
   const load = useCallback(async () => {
@@ -192,32 +200,39 @@ export function CreditProvider({ children }: { children: ReactNode }) {
     try {
       const result = await api.riskAssessment(wallet, 'POST', type);
       const fromPost = creditAiFromRiskAssessment(result);
+      writeSessionAiAssessment(
+        wallet,
+        fromPost.sourceDataHash ?? intelligenceRef.current?.sourceDataHash ?? null,
+        type,
+        fromPost,
+      );
       if (accountRef.current?.toLowerCase() === wallet.toLowerCase()) {
-        setIntelligence((prev) =>
-          prev && prev.wallet.toLowerCase() === wallet.toLowerCase()
-            ? mergeAssessment(prev, type, fromPost)
-            : prev,
-        );
-        setProfile((prev) =>
-          prev && prev.wallet.toLowerCase() === wallet.toLowerCase()
-            ? { ...prev, ai: type === 'general' ? fromPost : prev.ai }
-            : prev,
-        );
+        const base = intelligenceRef.current;
+        if (base && base.wallet.toLowerCase() === wallet.toLowerCase()) {
+          const merged = mergeAssessment(base, type, fromPost);
+          intelligenceRef.current = merged;
+          setIntelligence(merged);
+          setProfile(profileFromIntelligence(merged));
+          setHistory(historyFromProfile(merged));
+        }
       }
 
       try {
         const intel = await api.creditProfile(wallet);
         if (accountRef.current?.toLowerCase() !== wallet.toLowerCase()) return;
-        applyIntelligence(
-          mergeAssessment(intel, type, intel.aiByAnalysis?.[type]?.available ? intel.aiByAnalysis[type]! : fromPost),
+        const patched = mergeAssessment(
+          intel,
+          type,
+          intel.aiByAnalysis?.[type]?.available ? intel.aiByAnalysis[type]! : fromPost,
         );
+        applyIntelligence(patched);
       } catch {
         /* POST result is already on the page; profile refresh is best-effort. */
       }
 
       if (accountRef.current?.toLowerCase() === wallet.toLowerCase()) {
         if (fromPost.available) toast.success('AI risk assessment ready');
-        else toast.error(fromPost.blockedReason ?? 'AI assessment unavailable');
+        else toast.error(fromPost.blockedReason ?? '0G Compute did not return a result');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to run AI assessment';
@@ -230,6 +245,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setProfile(null);
     setIntelligence(null);
+    intelligenceRef.current = null;
     setHistory([]);
     setError(null);
     setAnalysisTypeState(DEFAULT_ANALYSIS_TYPE);
