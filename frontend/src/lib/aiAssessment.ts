@@ -4,7 +4,9 @@ import { ANALYSIS_TYPES, type AnalysisType } from '@/lib/analysis';
 export type AiView = CreditProfileDto['ai'];
 
 /** Profile GET returns this when Compute has not been run (or nothing is cached yet). */
-export function isPendingAi(ai: AiView | null | undefined): boolean {
+export function isPendingAi(
+  ai: { available: boolean; blockedReason?: string | null } | null | undefined,
+): boolean {
   if (!ai || ai.available) return false;
   const reason = (ai.blockedReason ?? '').toLowerCase();
   if (!reason) return true;
@@ -59,10 +61,6 @@ export function mergeAssessmentIntoProfile(
 
 const SESSION_SCOPE = 'ai-session';
 
-function sessionStoreKey(hash: string | null | undefined, type: AnalysisType): string {
-  return `${hash ?? 'none'}:${type}`;
-}
-
 export function readSessionAiAssessments(
   wallet: string,
 ): Partial<Record<AnalysisType, AiView>> {
@@ -77,7 +75,6 @@ export function readSessionAiAssessments(
 
 export function writeSessionAiAssessment(
   wallet: string,
-  hash: string | null | undefined,
   type: AnalysisType,
   ai: AiView,
 ): void {

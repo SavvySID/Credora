@@ -200,12 +200,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
     try {
       const result = await api.riskAssessment(wallet, 'POST', type);
       const fromPost = creditAiFromRiskAssessment(result);
-      writeSessionAiAssessment(
-        wallet,
-        fromPost.sourceDataHash ?? intelligenceRef.current?.sourceDataHash ?? null,
-        type,
-        fromPost,
-      );
+      writeSessionAiAssessment(wallet, type, fromPost);
       if (accountRef.current?.toLowerCase() === wallet.toLowerCase()) {
         const base = intelligenceRef.current;
         if (base && base.wallet.toLowerCase() === wallet.toLowerCase()) {
