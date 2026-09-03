@@ -268,13 +268,7 @@ export const indexerClient = {
     positiveFactors?: string[];
     assessmentSummary?: string;
     modelVersion?: string;
-    analysisType?:
-      | 'general'
-      | 'borrower-risk'
-      | 'repayment-behavior'
-      | 'liquidity'
-      | 'wallet-activity'
-      | 'risk-outlook';
+    analysisType?: 'general';
     analysisLabel?: string;
     riskOutlook?: 'Improving' | 'Stable' | 'Deteriorating' | 'Insufficient Data';
   }) =>
