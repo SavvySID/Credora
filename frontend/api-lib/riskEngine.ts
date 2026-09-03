@@ -4,12 +4,10 @@ import { assessBorrowerRisk, computeModelId, computeCapability } from './compute
 import { SCORING_MODEL, describeMethodology, scoreWallet, type ScoreResult } from './scoring';
 import type { AiRiskOutput } from './riskSchema';
 import {
-  ANALYSIS_FOCUS,
   ANALYSIS_TYPES,
   DEFAULT_ANALYSIS_TYPE,
   analysisCacheModelKey,
   analysisLabel,
-  isAnalysisType,
   parseRiskOutlook,
   type AnalysisType,
   type RiskOutlook,
@@ -38,8 +36,13 @@ export interface AiAssessmentView {
   riskOutlook: RiskOutlook | null;
 }
 
-function recordAnalysisType(record: RecordDto): AnalysisType {
-  return isAnalysisType(record.values.analysisType) ? record.values.analysisType : DEFAULT_ANALYSIS_TYPE;
+function recordIsGeneral(record: RecordDto): boolean {
+  const type = record.values.analysisType;
+  return type === undefined || type === null || type === '' || type === 'general';
+}
+
+function recordAnalysisType(_record: RecordDto): AnalysisType {
+  return DEFAULT_ANALYSIS_TYPE;
 }
 
 function fromRecord(record: RecordDto, cached: boolean, latencyMs: number | null): AiAssessmentView {
@@ -98,12 +101,7 @@ function unavailable(
   };
 }
 
-function borrowerFacts(
-  wallet: string,
-  features: FeaturesDto,
-  score: ScoreResult,
-  analysisType: AnalysisType,
-) {
+function borrowerFacts(wallet: string, features: FeaturesDto, score: ScoreResult) {
   const compact = Boolean(process.env.VERCEL);
   const facts: Record<string, unknown> = compact
     ? {
@@ -119,6 +117,8 @@ function borrowerFacts(
           overdue: features.overdue ?? false,
           repaymentRate: features.repayment?.repaymentRate ?? null,
         },
+        deterministicScore: score.creditScore,
+        creditBand: score.creditBand,
       }
     : {
         chainId: features.chainId,
@@ -135,7 +135,9 @@ function borrowerFacts(
         activeLoanCount: features.activeLoanCount ?? 0,
         repaidLoanCount: features.repaidLoanCount ?? 0,
         repayment: features.repayment,
-        observedFactors: score.factors.map((factor) => ({
+        deterministicScore: score.creditScore,
+        creditBand: score.creditBand,
+        deterministicFactors: score.factors.map((factor) => ({
           factor: factor.factor,
           observed: factor.observed,
           normalized: Number(factor.normalized.toFixed(4)),
@@ -143,15 +145,12 @@ function borrowerFacts(
         })),
         missingInputs: score.completeness.missing,
         instructions: [
-          'Do not invent loans, transactions, or balances.',
-          'riskScore is independent of any Credora credit score: higher means more risk.',
-          'riskLevel must be exactly Low, Medium, or High.',
+          'Do not invent loans, transactions, balances, or scores.',
+          'Do not modify deterministicScore.',
+          'riskScore is independent: higher means more risk.',
+          'riskLevel must be exactly Low, Medium, or High. Do not copy creditBand.',
         ],
       };
-
-  if (analysisType !== 'general') {
-    facts.focus = process.env.VERCEL ? analysisType : ANALYSIS_FOCUS[analysisType];
-  }
 
   return facts;
 }
@@ -185,6 +184,7 @@ export function aiFromRecordList(
 ): AiAssessmentView | null {
   const match = records.find((record) => {
     if (record.eventType !== 'ai_risk_assessment') return false;
+    if (!recordIsGeneral(record)) return false;
     if (recordAnalysisType(record) !== analysisType) return false;
     if (!sourceDataHash) return true;
     const stored = record.values.sourceDataHash;
@@ -244,15 +244,13 @@ export async function evaluateAiRisk(
   }
 
   const inference = await assessBorrowerRisk(
-    JSON.stringify(borrowerFacts(wallet, features, score, analysisType)),
-    analysisType,
+    JSON.stringify(borrowerFacts(wallet, features, score)),
   );
   if (!inference.available || !inference.output) {
     return unavailable(inference.blockedReason ?? '0G Compute inference failed.', hash, analysisType);
   }
 
-  const outlook =
-    analysisType === 'risk-outlook' ? parseRiskOutlook(inference.output.riskOutlook) : null;
+  const outlook = null;
 
   const live: AiAssessmentView = {
     available: true,
@@ -291,7 +289,7 @@ export async function evaluateAiRisk(
       riskFactors: inference.output.keyRiskFactors,
       positiveFactors: inference.output.positiveFactors,
       assessmentSummary: inference.output.assessmentSummary,
-      modelVersion: analysisType === 'general' ? 'router' : `router:${analysisType}`,
+      modelVersion: 'router',
       analysisType,
       analysisLabel: analysisLabel(analysisType),
       ...(outlook ? { riskOutlook: outlook } : {}),
