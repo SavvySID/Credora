@@ -123,15 +123,16 @@ async function explainScore(wallet, score) {
         clearTimeout(timer);
     }
 }
-const RISK_SYSTEM = 'You are Credora\'s on-chain credit risk analyst. You only evaluate the JSON facts provided. ' +
-    'You never invent loans, transactions, balances, or scores. You never modify the deterministicScore. ' +
-    'Higher riskScore means more risk (0 = lowest risk, 1000 = highest risk). ' +
+const RISK_SYSTEM = 'You independently score borrower RISK from the JSON facts. ' +
+    'riskScore is an integer 0-1000 where higher means MORE risk — it is not a credit score. ' +
+    'Never copy, invert, or reuse a Credora or deterministic credit score. ' +
+    'You never invent loans, transactions, or balances. ' +
     'riskLevel must be exactly one of Low, Medium, High — never creditBand values (Building, Established, Excellent). ' +
     'Reply with a single JSON object only.';
 /** glm drops keys unless the shape is in the system prompt on every path, including Vercel. */
 const RISK_JSON_SHAPE = 'Required JSON keys — do not omit any of them: ' +
     'riskLevel (exactly Low, Medium, or High), ' +
-    'riskScore (integer 0-1000, higher = more risk), ' +
+    'riskScore (integer 0-1000, higher = more risk, independent of any Credora credit score), ' +
     'keyRiskFactors (array of strings), ' +
     'positiveFactors (array of strings), ' +
     'assessmentSummary (non-empty string: the focused analysis in 1-4 sentences). ' +
@@ -190,6 +191,12 @@ async function assessBorrowerRisk(userJson, analysisType = 'general') {
         };
     }
     let parsed = (0, riskSchema_1.parseComputeChoice)(completion.choice);
+    if (parsed.ok && copiedCreditScore(userJson, parsed.value.riskScore)) {
+        parsed = {
+            ok: false,
+            reason: '0G Compute copied the Credora credit score into riskScore',
+        };
+    }
     if (!parsed.ok && completion.text && remaining() >= REPAIR_BUDGET_MS) {
         const repaired = await chatCompletion([
             {
@@ -198,15 +205,21 @@ async function assessBorrowerRisk(userJson, analysisType = 'general') {
             },
             {
                 role: 'user',
-                content: 'The previous reply was not valid JSON for the required schema. ' +
-                    'Convert it into that JSON object. Do not invent loans, balances, or scores.\n\n' +
+                content: 'The previous reply was not a valid independent risk assessment. ' +
+                    'Output the required JSON object. Do not invent loans or balances. ' +
+                    'Do not copy any credit score into riskScore; score risk independently (higher = more risk).\n\n' +
                     completion.text.slice(0, 2500),
             },
         ], true, remaining());
         if (repaired.ok) {
             const repairedParsed = (0, riskSchema_1.parseComputeChoice)(repaired.choice);
-            if (repairedParsed.ok)
+            if (repairedParsed.ok &&
+                !copiedCreditScore(userJson, repairedParsed.value.riskScore)) {
                 parsed = repairedParsed;
+            }
+            else if (!repairedParsed.ok) {
+                parsed = repairedParsed;
+            }
         }
     }
     if (!parsed.ok) {
@@ -227,6 +240,16 @@ async function assessBorrowerRisk(userJson, analysisType = 'general') {
         blockedReason: null,
         latencyMs: Date.now() - started,
     };
+}
+function copiedCreditScore(userJson, riskScore) {
+    try {
+        const facts = JSON.parse(userJson);
+        const credit = facts.deterministicScore ?? facts.creditScore;
+        return typeof credit === 'number' && Number.isFinite(credit) && Math.round(credit) === riskScore;
+    }
+    catch {
+        return false;
+    }
 }
 function jsonFormatRejected(status, reason) {
     if (status !== 400 && status !== 422)

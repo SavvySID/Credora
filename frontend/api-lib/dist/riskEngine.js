@@ -80,8 +80,6 @@ function borrowerFacts(wallet, features, score, analysisType) {
                 overdue: features.overdue ?? false,
                 repaymentRate: features.repayment?.repaymentRate ?? null,
             },
-            deterministicScore: score.creditScore,
-            creditBand: score.creditBand,
         }
         : {
             chainId: features.chainId,
@@ -98,9 +96,7 @@ function borrowerFacts(wallet, features, score, analysisType) {
             activeLoanCount: features.activeLoanCount ?? 0,
             repaidLoanCount: features.repaidLoanCount ?? 0,
             repayment: features.repayment,
-            deterministicScore: score.creditScore,
-            creditBand: score.creditBand,
-            deterministicFactors: score.factors.map((factor) => ({
+            observedFactors: score.factors.map((factor) => ({
                 factor: factor.factor,
                 observed: factor.observed,
                 normalized: Number(factor.normalized.toFixed(4)),
@@ -108,10 +104,9 @@ function borrowerFacts(wallet, features, score, analysisType) {
             })),
             missingInputs: score.completeness.missing,
             instructions: [
-                'Do not invent loans, transactions, balances, or scores.',
-                'Do not modify deterministicScore.',
-                'riskScore is independent: higher means more risk.',
-                'riskLevel must be exactly Low, Medium, or High. Do not copy creditBand.',
+                'Do not invent loans, transactions, or balances.',
+                'riskScore is independent of any Credora credit score: higher means more risk.',
+                'riskLevel must be exactly Low, Medium, or High.',
             ],
         };
     if (analysisType !== 'general') {

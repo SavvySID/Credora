@@ -33,6 +33,15 @@ export function isAwaitingComputeRun(
   return isPendingAi(ai);
 }
 
+/** glm sometimes copies the Credora credit score into Compute riskScore. Do not keep those. */
+export function copiesCreditScore(
+  ai: { available?: boolean; riskScore?: number | null } | null | undefined,
+  creditScore: number,
+): boolean {
+  if (!ai?.available || typeof ai.riskScore !== 'number') return false;
+  return ai.riskScore === creditScore;
+}
+
 export function mergePreservingSessionAi(
   incoming: CreditProfileDto,
   previous: CreditProfileDto | null,
@@ -112,6 +121,7 @@ export function applySessionAiAssessments(
   for (const type of ANALYSIS_TYPES) {
     const session = saved[type];
     if (!session?.available) continue;
+    if (copiesCreditScore(session, intel.deterministic.score)) continue;
     if (session.sourceDataHash && intel.sourceDataHash && session.sourceDataHash !== intel.sourceDataHash) {
       continue;
     }

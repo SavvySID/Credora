@@ -156,7 +156,7 @@ test('risk-outlook adds the outlook key without the long focus paragraph', async
   }) as typeof fetch;
 
   const inference = await assessBorrowerRisk(
-    JSON.stringify({ deterministicScore: 400 }),
+    JSON.stringify({ nonce: 74, loans: { repaid: 0 } }),
     'risk-outlook',
   );
   assert.equal(inference.available, true);
@@ -224,6 +224,62 @@ test('general prompt always includes the JSON shape', async () => {
 
   await assessBorrowerRisk(JSON.stringify({ deterministicScore: 400 }), 'general');
   assert.match(body?.messages?.[0]?.content ?? '', /Required JSON keys/);
+  assert.match(body?.messages?.[0]?.content ?? '', /Never copy/i);
+});
+
+test('rejects a Compute riskScore that copies deterministicScore', async () => {
+  process.env.ZG_COMPUTE_API_KEY = 'sk-test';
+  process.env.ZG_COMPUTE_MODEL = 'demo-model';
+
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        model: 'demo-model',
+        choices: [
+          {
+            message: {
+              content:
+                '{"riskLevel":"Medium","riskScore":469,"keyRiskFactors":["Thin file"],"positiveFactors":[],"assessmentSummary":"Copied the credit score."}',
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    )) as typeof fetch;
+
+  const inference = await assessBorrowerRisk(JSON.stringify({ deterministicScore: 469 }));
+  assert.equal(inference.available, false);
+  assert.equal(inference.output, null);
+  assert.match(inference.blockedReason ?? '', /copied the Credora credit score/i);
+});
+
+test('repairs a copied credit score into an independent riskScore', async () => {
+  process.env.ZG_COMPUTE_API_KEY = 'sk-test';
+  process.env.ZG_COMPUTE_MODEL = 'demo-model';
+  let calls = 0;
+
+  globalThis.fetch = (async () => {
+    calls += 1;
+    const riskScore = calls === 1 ? 469 : 720;
+    return new Response(
+      JSON.stringify({
+        model: 'demo-model',
+        choices: [
+          {
+            message: {
+              content: `{"riskLevel":"High","riskScore":${riskScore},"keyRiskFactors":["Thin file"],"positiveFactors":[],"assessmentSummary":"Independent risk."}`,
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  }) as typeof fetch;
+
+  const inference = await assessBorrowerRisk(JSON.stringify({ deterministicScore: 469 }));
+  assert.equal(calls, 2);
+  assert.equal(inference.available, true);
+  assert.equal(inference.output?.riskScore, 720);
 });
 
 test('repairs a prose Compute reply into JSON on a second json_object call', async () => {
@@ -249,7 +305,7 @@ test('repairs a prose Compute reply into JSON on a second json_object call', asy
           {
             message: {
               content:
-                '{"riskLevel":"Medium","riskScore":400,"keyRiskFactors":["Thin file"],"positiveFactors":[],"assessmentSummary":"Unproven file."}',
+                '{"riskLevel":"Medium","riskScore":620,"keyRiskFactors":["Thin file"],"positiveFactors":[],"assessmentSummary":"Unproven file."}',
             },
           },
         ],
@@ -261,5 +317,5 @@ test('repairs a prose Compute reply into JSON on a second json_object call', asy
   const inference = await assessBorrowerRisk(JSON.stringify({ deterministicScore: 400 }));
   assert.equal(calls, 2);
   assert.equal(inference.available, true);
-  assert.equal(inference.output?.riskScore, 400);
+  assert.equal(inference.output?.riskScore, 620);
 });
