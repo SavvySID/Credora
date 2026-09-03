@@ -38,10 +38,10 @@ export function BorrowerRiskPanel({ profile }: { profile: CreditProfileDto }) {
       );
       const fromPost = creditAiFromRiskAssessment(result);
       setAiOverride(fromPost);
-      if (fromPost.available) toast.success('AI risk assessment ready');
-      else toast.error(fromPost.blockedReason ?? 'AI assessment unavailable');
+      if (fromPost.available) toast.success('0G Compute assessment ready');
+      else toast.error(fromPost.blockedReason ?? '0G Compute did not return a result');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to run AI assessment');
+      toast.error(err instanceof Error ? err.message : 'Failed to run 0G Compute assessment');
     } finally {
       setRunning(false);
     }

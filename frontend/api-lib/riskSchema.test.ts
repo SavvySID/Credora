@@ -230,3 +230,11 @@ test('uses the model factor lists when no prose field is present', () => {
     assert.match(result.value.assessmentSummary, /Recent inbound activity/);
   }
 });
+
+test('extracts JSON from think tags and surrounding prose', () => {
+  const result = parseAiRiskJson(
+    '<think>ok</think> Here is the result\n{"riskLevel":"Low","riskScore":210,"keyRiskFactors":["Thin file"],"positiveFactors":["Active"],"assessmentSummary":"Limited history."}',
+  );
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.value.riskScore, 210);
+});

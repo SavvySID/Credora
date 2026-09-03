@@ -112,7 +112,7 @@ export async function handle(req: VercelRequest, res: VercelResponse) {
       model: null,
       latencyMs: null,
       blockedReason: compute.available
-        ? 'Run AI assessment to call 0G Compute for this wallet.'
+        ? 'Run 0G Compute assessment for this wallet.'
         : compute.blockedReason,
       cached: false,
       sourceDataHash: hash,

@@ -15,7 +15,8 @@ export function isPendingAi(
     reason.includes('request a risk') ||
     reason.includes('post to run') ||
     reason.includes('for this wallet yet') ||
-    reason.includes('run ai assessment')
+    reason.includes('run ai assessment') ||
+    reason.includes('run 0g compute')
   );
 }
 

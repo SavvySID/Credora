@@ -217,11 +217,11 @@ export function CreditProvider({ children }: { children: ReactNode }) {
       }
 
       if (accountRef.current?.toLowerCase() === wallet.toLowerCase()) {
-        if (fromPost.available) toast.success('AI risk assessment ready');
+        if (fromPost.available) toast.success('0G Compute assessment ready');
         else toast.error(fromPost.blockedReason ?? '0G Compute did not return a result');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to run AI assessment';
+      const message = err instanceof Error ? err.message : 'Failed to run 0G Compute assessment';
       toast.error(message);
     } finally {
       setIsRunningAi(false);

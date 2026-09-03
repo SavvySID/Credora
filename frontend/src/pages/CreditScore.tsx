@@ -115,7 +115,7 @@ export default function CreditScore() {
             </Badge>
           }
           title="Credit score"
-          description="Deterministic Credora score from on-chain facts. AI risk is separate and only shown when 0G Compute succeeds."
+          description="Deterministic Credora score from on-chain facts. 0G Compute assessment is separate and only shown when Compute succeeds."
           actions={
             <div className="flex flex-wrap gap-2">
               <Button
@@ -135,7 +135,7 @@ export default function CreditScore() {
                 iconLeft={<Cpu className="h-4 w-4" />}
                 iconRight={<ChevronDown className="h-4 w-4" />}
               >
-                Run AI assessment
+                Run 0G Compute assessment
               </Button>
             </div>
           }
@@ -147,7 +147,7 @@ export default function CreditScore() {
           className="inline-flex items-center gap-1.5 text-sm text-ink-muted transition-colors hover:text-ink"
         >
           <ChevronDown className="h-4 w-4" aria-hidden />
-          AI assessment is below
+          0G Compute assessment is below
         </button>
 
         {error ? (
@@ -395,8 +395,8 @@ export default function CreditScore() {
             <CardBody className="pt-0">
               <InlineNotice tone="info">
                 The Credora score is a deterministic weighted sum of on-chain features
-                {profile?.methodology ? ` (${profile.methodology})` : ''}. It is not AI-generated.
-                AI risk appears only after a real 0G Compute response passes schema validation.
+                {profile?.methodology ? ` (${profile.methodology})` : ''}. It is not produced by Compute.
+                A 0G Compute assessment appears only after a real router response passes schema validation.
                 Verified means write → retrieve → content-hash check on 0G Storage.
               </InlineNotice>
             </CardBody>

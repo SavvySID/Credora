@@ -177,7 +177,10 @@ function parseOutlook(value) {
     return match;
 }
 function parseAiRiskJson(raw) {
-    const trimmed = raw.trim();
+    const trimmed = raw
+        .replace(/<\/?think>/gi, ' ')
+        .replace(/<\/?reasoning>/gi, ' ')
+        .trim();
     const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
     const candidate = fenced ? fenced[1].trim() : trimmed;
     const objects = extractJsonObjects(candidate);
@@ -251,7 +254,8 @@ function extractJsonObjects(text) {
 function completionTextFromChoice(choice) {
     const message = choice.message ?? {};
     const content = typeof message.content === 'string' ? message.content.trim() : '';
-    if (content)
-        return content;
-    return typeof message.reasoning_content === 'string' ? message.reasoning_content.trim() : '';
+    const reasoning = typeof message.reasoning_content === 'string' ? message.reasoning_content.trim() : '';
+    if (content && reasoning)
+        return `${content}\n${reasoning}`;
+    return content || reasoning;
 }

@@ -41,7 +41,7 @@ export default function Lender() {
   return (
     <ConnectGate
       title="Lender desk"
-      description="Look up a Galileo wallet to review Credora score, AI risk and verification. This is not a lending pool."
+      description="Look up a Galileo wallet to review Credora score, 0G Compute assessment, and verification. This is not a lending pool."
     >
       <div className="space-y-8">
         <PageHeader
@@ -92,7 +92,7 @@ export default function Lender() {
                   },
                   {
                     key: 'ai',
-                    header: 'AI risk',
+                    header: 'Compute risk',
                     render: (row) =>
                       row.lastAiRiskLevel ? (
                         <Badge tone="brand" size="sm">

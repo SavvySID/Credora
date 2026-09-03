@@ -168,9 +168,8 @@ async function assessBorrowerRisk(userJson, analysisType = 'general') {
         { role: 'system', content: system },
         { role: 'user', content: userJson },
     ];
-    // json_object + reasoning_effort makes glm miss the Hobby window. Local can retry.
-    const withFormat = await chatCompletion(messages, !onVercel);
-    const completion = onVercel || withFormat.ok || withFormat.status === null
+    const withFormat = await chatCompletion(messages, true);
+    const completion = process.env.VERCEL || withFormat.ok || withFormat.status === null
         ? withFormat
         : await chatCompletion(messages, false);
     const latencyMs = Date.now() - started;
@@ -209,7 +208,7 @@ async function chatCompletion(messages, jsonMode) {
     const { routerUrl, apiKey, model, timeoutMs } = (0, computeProbe_1.computeEnv)();
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const maxTokens = process.env.VERCEL ? 220 : 1600;
+    const maxTokens = process.env.VERCEL ? 500 : 1600;
     try {
         const body = {
             model,

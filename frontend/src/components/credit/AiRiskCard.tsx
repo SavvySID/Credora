@@ -40,7 +40,7 @@ function AnalysisControls({
   return (
     <div className="space-y-3">
       <Field
-        label="Ask Credora AI to analyze"
+        label="Ask 0G Compute to analyze"
         htmlFor="credora-ai-analysis"
         labelClassName="text-base font-semibold"
       >
@@ -67,7 +67,7 @@ function AnalysisControls({
           disabled={disabled || running}
           iconLeft={<Cpu className="h-4 w-4" />}
         >
-          Run AI assessment
+          Run 0G Compute assessment
         </Button>
       ) : null}
     </div>
@@ -99,7 +99,7 @@ export function AiRiskCard({
     return (
       <Card>
         <CardHeader
-          title="AI risk assessment"
+          title="0G Compute assessment"
           description="Calling 0G Compute with the current on-chain facts. The Credora score above is unchanged."
           icon={<Cpu className="h-4 w-4" />}
           action={
@@ -132,13 +132,13 @@ export function AiRiskCard({
     const pending = isPendingAi(ai);
     const noticeTitle = pending ? 'Ready for 0G Compute' : 'Could not complete assessment';
     const noticeBody = pending
-      ? `Click Run AI assessment to generate a ${selectedLabel.toLowerCase()} from your on-chain facts. The Credora score stays deterministic and is not AI-generated.`
+      ? `Click Run 0G Compute assessment to generate a ${selectedLabel.toLowerCase()} from your on-chain facts. The Credora score stays deterministic.`
       : (ai?.blockedReason ?? '0G Compute did not return a result. Try again.');
 
     return (
       <Card>
         <CardHeader
-          title="AI risk assessment"
+          title="0G Compute assessment"
           description="0G Compute structured risk assessment. Independent of the Credora score."
           icon={<Shield className="h-4 w-4" />}
         />
@@ -156,7 +156,7 @@ export function AiRiskCard({
           </InlineNotice>
           {!showControls && onRetry ? (
             <Button variant="secondary" size="sm" onClick={onRetry} iconLeft={<Cpu className="h-4 w-4" />}>
-              Run AI assessment
+              Run 0G Compute assessment
             </Button>
           ) : null}
         </CardBody>
@@ -172,13 +172,13 @@ export function AiRiskCard({
   return (
     <Card>
       <CardHeader
-        title="AI risk assessment"
+        title="0G Compute assessment"
         description="Produced by 0G Compute from structured on-chain facts. Independent of the Credora credit score."
         icon={<Shield className="h-4 w-4" />}
         action={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Badge tone="brand" size="sm">
-              AI Generated
+              0G Compute
             </Badge>
             <Badge tone="neutral" size="sm">
               {label}
@@ -200,7 +200,7 @@ export function AiRiskCard({
         ) : null}
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <p className="text-2xs uppercase tracking-wider text-ink-muted">AI risk score</p>
+            <p className="text-2xs uppercase tracking-wider text-ink-muted">Compute risk score</p>
             <p className="font-display text-3xl font-semibold tabular">{ai.riskScore ?? '—'}</p>
             <p className="mt-0.5 text-2xs text-ink-faint">0–1000 · higher means more risk · not the Credora score</p>
           </div>

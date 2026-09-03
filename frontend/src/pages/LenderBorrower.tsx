@@ -47,7 +47,7 @@ export default function LenderBorrower() {
       <div className="space-y-8">
         <PageHeader
           title="Borrower intelligence"
-          description="Deterministic score, AI risk when available, and 0G verification — not a funding action."
+          description="Deterministic score, 0G Compute assessment when available, and 0G verification. Not a funding action."
           actions={
             <Link to="/lender" className={buttonStyles('ghost')}>
               <ArrowLeft className="h-4 w-4" /> Back
