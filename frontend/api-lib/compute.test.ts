@@ -125,9 +125,45 @@ test('specialized analysis changes the system focus, not the score contract', as
   );
   assert.equal(inference.available, true);
   assert.equal(inference.output?.riskScore, 210);
-  assert.match(body?.messages?.[0]?.content ?? '', /repayment/i);
-  assert.match(body?.messages?.[0]?.content ?? '', /assessmentSummary/);
-  assert.doesNotMatch(body?.messages?.[0]?.content ?? '', /credora-onchain-v1/);
+  const system = body?.messages?.[0]?.content ?? '';
+  assert.match(system, /Focus: repayment-behavior/);
+  assert.match(system, /assessmentSummary/);
+  assert.doesNotMatch(system, /repayment history, repayment consistency/);
+  assert.doesNotMatch(system, /credora-onchain-v1/);
+});
+
+test('risk-outlook adds the outlook key without the long focus paragraph', async () => {
+  process.env.ZG_COMPUTE_API_KEY = 'sk-test';
+  process.env.ZG_COMPUTE_MODEL = 'demo-model';
+  let body: { messages?: Array<{ role: string; content: string }> } | null = null;
+
+  globalThis.fetch = (async (_url, init) => {
+    body = JSON.parse(String(init?.body ?? '{}'));
+    return new Response(
+      JSON.stringify({
+        model: 'demo-model',
+        choices: [
+          {
+            message: {
+              content:
+                '{"riskLevel":"Medium","riskScore":400,"keyRiskFactors":[],"positiveFactors":[],"assessmentSummary":"Stable on the facts.","confidence":0.5,"riskOutlook":"Stable"}',
+            },
+          },
+        ],
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  }) as typeof fetch;
+
+  const inference = await assessBorrowerRisk(
+    JSON.stringify({ deterministicScore: 400 }),
+    'risk-outlook',
+  );
+  assert.equal(inference.available, true);
+  const system = body?.messages?.[0]?.content ?? '';
+  assert.match(system, /Focus: risk-outlook/);
+  assert.match(system, /riskOutlook/);
+  assert.doesNotMatch(system, /improving, stable, or deteriorating/i);
 });
 
 test('always requests json_object and low reasoning effort', async () => {

@@ -5,7 +5,6 @@ exports.explainScore = explainScore;
 exports.assessBorrowerRisk = assessBorrowerRisk;
 const scoring_1 = require("./scoring");
 const riskSchema_1 = require("./riskSchema");
-const analysis_1 = require("./analysis");
 const computeProbe_1 = require("./computeProbe");
 var computeProbe_2 = require("./computeProbe");
 Object.defineProperty(exports, "computeCapability", { enumerable: true, get: function () { return computeProbe_2.computeCapability; } });
@@ -166,10 +165,10 @@ async function assessBorrowerRisk(userJson, analysisType = 'general') {
     const started = Date.now();
     const budgetMs = (0, computeProbe_1.computeEnv)().timeoutMs;
     const outlookHint = analysisType === 'risk-outlook'
-        ? ' Include riskOutlook as Improving, Stable, Deteriorating, or Insufficient Data.'
+        ? ' Also set riskOutlook to Improving, Stable, Deteriorating, or Insufficient Data.'
         : '';
-    const focus = analysisType === 'general' ? '' : ` Analytical focus: ${analysis_1.ANALYSIS_FOCUS[analysisType]}.${outlookHint}`;
-    const system = `${RISK_SYSTEM} ${RISK_JSON_SHAPE}${focus} Use only the provided facts.`;
+    const focus = analysisType === 'general' ? '' : ` Focus: ${analysisType}.`;
+    const system = `${RISK_SYSTEM} ${RISK_JSON_SHAPE}${focus}${outlookHint} Use only the provided facts.`;
     const messages = [
         { role: 'system', content: system },
         { role: 'user', content: userJson },

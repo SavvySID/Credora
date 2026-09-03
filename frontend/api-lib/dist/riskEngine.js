@@ -115,7 +115,7 @@ function borrowerFacts(wallet, features, score, analysisType) {
             ],
         };
     if (analysisType !== 'general') {
-        facts.focus = analysis_1.ANALYSIS_FOCUS[analysisType];
+        facts.focus = process.env.VERCEL ? analysisType : analysis_1.ANALYSIS_FOCUS[analysisType];
     }
     return facts;
 }

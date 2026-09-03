@@ -6,7 +6,7 @@ import {
   type AiRiskOutput,
   type ComputeChoice,
 } from './riskSchema';
-import { ANALYSIS_FOCUS, type AnalysisType } from './analysis';
+import { type AnalysisType } from './analysis';
 import { computeCapability, computeEnv, computeModelId } from './computeProbe';
 
 export { computeCapability, computeModelId, probeCompute } from './computeProbe';
@@ -229,11 +229,10 @@ export async function assessBorrowerRisk(
   const budgetMs = computeEnv().timeoutMs;
   const outlookHint =
     analysisType === 'risk-outlook'
-      ? ' Include riskOutlook as Improving, Stable, Deteriorating, or Insufficient Data.'
+      ? ' Also set riskOutlook to Improving, Stable, Deteriorating, or Insufficient Data.'
       : '';
-  const focus =
-    analysisType === 'general' ? '' : ` Analytical focus: ${ANALYSIS_FOCUS[analysisType]}.${outlookHint}`;
-  const system = `${RISK_SYSTEM} ${RISK_JSON_SHAPE}${focus} Use only the provided facts.`;
+  const focus = analysisType === 'general' ? '' : ` Focus: ${analysisType}.`;
+  const system = `${RISK_SYSTEM} ${RISK_JSON_SHAPE}${focus}${outlookHint} Use only the provided facts.`;
   const messages = [
     { role: 'system', content: system },
     { role: 'user', content: userJson },

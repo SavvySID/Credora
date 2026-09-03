@@ -155,7 +155,7 @@ function borrowerFacts(
       };
 
   if (analysisType !== 'general') {
-    facts.focus = ANALYSIS_FOCUS[analysisType];
+    facts.focus = process.env.VERCEL ? analysisType : ANALYSIS_FOCUS[analysisType];
   }
 
   return facts;
