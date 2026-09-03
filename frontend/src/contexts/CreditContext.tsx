@@ -50,10 +50,7 @@ interface CreditContextValue {
   error: string | null;
   isRealTimeConnected: boolean;
   zeroGStatus: ZeroGStatus;
-  analysisType: AnalysisType;
-  setAnalysisType: (type: AnalysisType) => void;
   displayedAi: CreditProfileDto['ai'] | null;
-  hasAttemptedCurrentAnalysis: boolean;
   refresh: () => Promise<void>;
   requestAiAssessment: () => Promise<void>;
 }
@@ -132,8 +129,6 @@ export function CreditProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<ScorePoint[]>([]);
   const [isRefreshingScore, setIsRefreshingScore] = useState(false);
   const [isRunningAi, setIsRunningAi] = useState(false);
-  const [analysisType, setAnalysisTypeState] = useState<AnalysisType>(DEFAULT_ANALYSIS_TYPE);
-  const [attemptedAnalysis, setAttemptedAnalysis] = useState<Partial<Record<AnalysisType, true>>>({});
   const [error, setError] = useState<string | null>(null);
   const [isRealTimeConnected, setIsRealTimeConnected] = useState(false);
   const [zeroGStatus, setZeroGStatus] = useState<ZeroGStatus>(() =>
@@ -141,14 +136,8 @@ export function CreditProvider({ children }: { children: ReactNode }) {
   );
   const accountRef = useRef(account);
   accountRef.current = account;
-  const analysisTypeRef = useRef(analysisType);
-  analysisTypeRef.current = analysisType;
   const loadGeneration = useRef(0);
   const intelligenceRef = useRef<CreditProfileDto | null>(null);
-
-  const setAnalysisType = useCallback((type: AnalysisType) => {
-    setAnalysisTypeState(type);
-  }, []);
 
   const applyIntelligence = useCallback((incoming: CreditProfileDto) => {
     const current = accountRef.current;
@@ -198,8 +187,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
   const requestAiAssessment = useCallback(async () => {
     if (!account) return;
     const wallet = account;
-    const type = analysisTypeRef.current;
-    setAttemptedAnalysis((prev) => ({ ...prev, [type]: true }));
+    const type = DEFAULT_ANALYSIS_TYPE;
     setIsRunningAi(true);
     try {
       const facts = intelligenceRef.current
@@ -237,8 +225,6 @@ export function CreditProvider({ children }: { children: ReactNode }) {
     intelligenceRef.current = null;
     setHistory([]);
     setError(null);
-    setAnalysisTypeState(DEFAULT_ANALYSIS_TYPE);
-    setAttemptedAnalysis({});
     if (!account) return;
     void load();
   }, [account, load]);
@@ -309,8 +295,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
   }, [isConnected, account, record]);
 
   const isLoading = isRefreshingScore || isRunningAi;
-  const displayedAi = aiForType(intelligence, analysisType);
-  const hasAttemptedCurrentAnalysis = attemptedAnalysis[analysisType] === true;
+  const displayedAi = aiForType(intelligence, DEFAULT_ANALYSIS_TYPE);
 
   const value = useMemo(
     () => ({
@@ -323,10 +308,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
       error,
       isRealTimeConnected,
       zeroGStatus,
-      analysisType,
-      setAnalysisType,
       displayedAi,
-      hasAttemptedCurrentAnalysis,
       refresh: load,
       requestAiAssessment,
     }),
@@ -340,10 +322,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
       error,
       isRealTimeConnected,
       zeroGStatus,
-      analysisType,
-      setAnalysisType,
       displayedAi,
-      hasAttemptedCurrentAnalysis,
       load,
       requestAiAssessment,
     ],
