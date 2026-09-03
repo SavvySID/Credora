@@ -15,8 +15,12 @@ const analysis_1 = require("./analysis");
 function modelKey(analysisType = analysis_1.DEFAULT_ANALYSIS_TYPE) {
     return (0, analysis_1.analysisCacheModelKey)((0, compute_1.computeModelId)(), analysisType);
 }
-function recordAnalysisType(record) {
-    return (0, analysis_1.isAnalysisType)(record.values.analysisType) ? record.values.analysisType : analysis_1.DEFAULT_ANALYSIS_TYPE;
+function recordIsGeneral(record) {
+    const type = record.values.analysisType;
+    return type === undefined || type === null || type === '' || type === 'general';
+}
+function recordAnalysisType(_record) {
+    return analysis_1.DEFAULT_ANALYSIS_TYPE;
 }
 function fromRecord(record, cached, latencyMs) {
     const analysisType = recordAnalysisType(record);
@@ -64,7 +68,7 @@ function unavailable(reason, hash, analysisType = analysis_1.DEFAULT_ANALYSIS_TY
         riskOutlook: null,
     };
 }
-function borrowerFacts(wallet, features, score, analysisType) {
+function borrowerFacts(wallet, features, score) {
     const compact = Boolean(process.env.VERCEL);
     const facts = compact
         ? {
@@ -80,6 +84,8 @@ function borrowerFacts(wallet, features, score, analysisType) {
                 overdue: features.overdue ?? false,
                 repaymentRate: features.repayment?.repaymentRate ?? null,
             },
+            deterministicScore: score.creditScore,
+            creditBand: score.creditBand,
         }
         : {
             chainId: features.chainId,
@@ -96,7 +102,9 @@ function borrowerFacts(wallet, features, score, analysisType) {
             activeLoanCount: features.activeLoanCount ?? 0,
             repaidLoanCount: features.repaidLoanCount ?? 0,
             repayment: features.repayment,
-            observedFactors: score.factors.map((factor) => ({
+            deterministicScore: score.creditScore,
+            creditBand: score.creditBand,
+            deterministicFactors: score.factors.map((factor) => ({
                 factor: factor.factor,
                 observed: factor.observed,
                 normalized: Number(factor.normalized.toFixed(4)),
@@ -104,14 +112,12 @@ function borrowerFacts(wallet, features, score, analysisType) {
             })),
             missingInputs: score.completeness.missing,
             instructions: [
-                'Do not invent loans, transactions, or balances.',
-                'riskScore is independent of any Credora credit score: higher means more risk.',
-                'riskLevel must be exactly Low, Medium, or High.',
+                'Do not invent loans, transactions, balances, or scores.',
+                'Do not modify deterministicScore.',
+                'riskScore is independent: higher means more risk.',
+                'riskLevel must be exactly Low, Medium, or High. Do not copy creditBand.',
             ],
         };
-    if (analysisType !== 'general') {
-        facts.focus = process.env.VERCEL ? analysisType : analysis_1.ANALYSIS_FOCUS[analysisType];
-    }
     return facts;
 }
 async function getCachedAiAssessment(wallet, sourceDataHash, analysisType = analysis_1.DEFAULT_ANALYSIS_TYPE) {
@@ -133,6 +139,8 @@ async function getCachedAiAssessment(wallet, sourceDataHash, analysisType = anal
 function aiFromRecordList(records, sourceDataHash, analysisType = analysis_1.DEFAULT_ANALYSIS_TYPE) {
     const match = records.find((record) => {
         if (record.eventType !== 'ai_risk_assessment')
+            return false;
+        if (!recordIsGeneral(record))
             return false;
         if (recordAnalysisType(record) !== analysisType)
             return false;
@@ -181,11 +189,11 @@ async function evaluateAiRisk(wallet, features, score, analysisType = analysis_1
     if (!capability.available) {
         return unavailable(capability.blockedReason ?? '0G Compute is not configured.', hash, analysisType);
     }
-    const inference = await (0, compute_1.assessBorrowerRisk)(JSON.stringify(borrowerFacts(wallet, features, score, analysisType)), analysisType);
+    const inference = await (0, compute_1.assessBorrowerRisk)(JSON.stringify(borrowerFacts(wallet, features, score)));
     if (!inference.available || !inference.output) {
         return unavailable(inference.blockedReason ?? '0G Compute inference failed.', hash, analysisType);
     }
-    const outlook = analysisType === 'risk-outlook' ? (0, analysis_1.parseRiskOutlook)(inference.output.riskOutlook) : null;
+    const outlook = null;
     const live = {
         available: true,
         riskLevel: inference.output.riskLevel,
@@ -221,7 +229,7 @@ async function evaluateAiRisk(wallet, features, score, analysisType = analysis_1
             riskFactors: inference.output.keyRiskFactors,
             positiveFactors: inference.output.positiveFactors,
             assessmentSummary: inference.output.assessmentSummary,
-            modelVersion: analysisType === 'general' ? 'router' : `router:${analysisType}`,
+            modelVersion: 'router',
             analysisType,
             analysisLabel: (0, analysis_1.analysisLabel)(analysisType),
             ...(outlook ? { riskOutlook: outlook } : {}),
