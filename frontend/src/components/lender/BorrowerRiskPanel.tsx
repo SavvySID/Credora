@@ -8,35 +8,30 @@ import { ScoreSourceLegend } from '@/components/credit/ScoreSourceLegend';
 import { VerificationStatusBadge } from '@/components/credit/VerificationStatusBadge';
 import { FactorList } from '@/components/credit/FactorList';
 import { api, creditAiFromRiskAssessment, computeFactsFromProfile, type CreditProfileDto } from '@/services/api';
-import { DEFAULT_ANALYSIS_TYPE, type AnalysisType } from '@/lib/analysis';
+import { DEFAULT_ANALYSIS_TYPE } from '@/lib/analysis';
 import { formatEth, formatNumber, formatPercent } from '@/lib/format';
 import toast from 'react-hot-toast';
 
 export function BorrowerRiskPanel({ profile }: { profile: CreditProfileDto }) {
-  const [analysisType, setAnalysisType] = useState<AnalysisType>(DEFAULT_ANALYSIS_TYPE);
   const [running, setRunning] = useState(false);
   const [aiOverride, setAiOverride] = useState<CreditProfileDto['ai'] | null>(null);
-  const [attemptedAnalysis, setAttemptedAnalysis] = useState<Partial<Record<AnalysisType, true>>>({});
 
   useEffect(() => {
     setAiOverride(null);
-    setAnalysisType(DEFAULT_ANALYSIS_TYPE);
-    setAttemptedAnalysis({});
   }, [profile.wallet]);
 
   const selectedAi = useMemo(() => {
-    if (aiOverride && (aiOverride.analysisType ?? analysisType) === analysisType) return aiOverride;
-    return profile.aiByAnalysis?.[analysisType] ?? (analysisType === 'general' ? profile.ai : null);
-  }, [aiOverride, analysisType, profile]);
+    if (aiOverride) return aiOverride;
+    return profile.aiByAnalysis?.general ?? profile.ai;
+  }, [aiOverride, profile]);
 
   async function runAssessment() {
     setRunning(true);
-    setAttemptedAnalysis((prev) => ({ ...prev, [analysisType]: true }));
     try {
       const result = await api.riskAssessment(
         profile.wallet,
         'POST',
-        analysisType,
+        DEFAULT_ANALYSIS_TYPE,
         computeFactsFromProfile(profile),
       );
       const fromPost = creditAiFromRiskAssessment(result);
@@ -81,13 +76,7 @@ export function BorrowerRiskPanel({ profile }: { profile: CreditProfileDto }) {
           compact
           ai={selectedAi}
           loading={running}
-          analysisType={analysisType}
-          onAnalysisTypeChange={(type) => {
-            setAnalysisType(type);
-            setAiOverride(null);
-          }}
           onRun={() => void runAssessment()}
-          hasAttempted={attemptedAnalysis[analysisType] === true}
         />
       </div>
 
@@ -104,38 +93,6 @@ export function BorrowerRiskPanel({ profile }: { profile: CreditProfileDto }) {
           <FactorList factors={profile.deterministic.factors} />
         </CardBody>
       </Card>
-
-      {selectedAi?.available ? (
-        <Card>
-          <CardHeader title="AI factors" description="Returned only after a validated 0G Compute response." />
-          <CardBody className="grid gap-6 sm:grid-cols-2">
-            <div>
-              <p className="text-2xs uppercase tracking-wider text-ink-muted">Risk factors</p>
-              {selectedAi.factors.keyRiskFactors.length > 0 ? (
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
-                  {selectedAi.factors.keyRiskFactors.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-sm text-ink-faint">None returned</p>
-              )}
-            </div>
-            <div>
-              <p className="text-2xs uppercase tracking-wider text-ink-muted">Positive factors</p>
-              {selectedAi.factors.positiveFactors.length > 0 ? (
-                <ul className="mt-2 list-disc space-y-1 pl-4 text-sm">
-                  {selectedAi.factors.positiveFactors.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-2 text-sm text-ink-faint">None returned</p>
-              )}
-            </div>
-          </CardBody>
-        </Card>
-      ) : null}
 
       <Card>
         <CardHeader title="Wallet and loans" />
