@@ -19,7 +19,9 @@ credora/
 ├── frontend/               # App + Vercel/Vite API
 │   ├── api/                # Scoring, Compute, profile, lender, analytics
 │   └── src/                # React UI
-└── docs/PHASE3.md          # Architecture and honesty rules
+└── docs/
+    ├── ARCHITECTURE.md     # Diagram, 0G modules, local run
+    └── PHASE3.md           # Scoring, cache, PASS vs BLOCKED
 ```
 
 ## 1. Indexer
