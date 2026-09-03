@@ -41,7 +41,7 @@ export function totalRepaymentFor(amount: number): number {
 export function capacityWarning(amount: number, balance: number): string | null {
   if (!(amount > 0)) return 'Enter an amount greater than zero.';
   if (balance > 0 && amount > balance * LOAN_TERMS.maxBalanceMultiple) {
-    return `Requested amount is above ${LOAN_TERMS.maxBalanceMultiple}× wallet balance. This is a Credora guideline, not a Loan.sol rule.`;
+    return `Requested amount is above ${LOAN_TERMS.maxBalanceMultiple}× wallet balance. This is a Credora guideline, not a contract rule.`;
   }
   return null;
 }

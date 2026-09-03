@@ -56,7 +56,7 @@ export function loanContractAddress(): Address {
   const address = publicConfig.loanContractAddress;
   if (!address) {
     throw new LoanTxError(
-      'VITE_LOAN_CONTRACT_ADDRESS is not set. The UI cannot call Loan.sol.',
+      'VITE_LOAN_CONTRACT_ADDRESS is not set. The UI cannot submit a loan.',
       'contract_unavailable',
     );
   }
@@ -136,21 +136,21 @@ export function mapWriteError(error: unknown, txHash: Hash | null = null): LoanT
   }
   if (lower.includes('active loan already exists')) {
     return new LoanTxError(
-      'This wallet already has an active loan on Loan.sol (one loan per borrower).',
+      'This wallet already has an active loan (one loan per borrower).',
       'active_loan',
       txHash,
     );
   }
   if (lower.includes('eligibility criteria not met')) {
     return new LoanTxError(
-      'Loan.sol rejected the request. Remaining wallet balance must be at least 0.5 0G, and getBorrowerTxCount must be at least 10 (set by the contract owner, not your wallet nonce).',
+      'The loan contract rejected the request. Remaining wallet balance must be at least 0.5 0G, and the on-chain activity counter must be at least 10 (not your wallet nonce).',
       'eligibility',
       txHash,
     );
   }
   if (lower.includes('loan has expired')) {
     return new LoanTxError(
-      'Loan.sol will not accept repayment after dueTime. Overdue loans cannot be settled on this contract.',
+      'The loan contract will not accept repayment after the due date. Overdue loans cannot be settled on this contract.',
       'expired',
       txHash,
     );
@@ -163,7 +163,7 @@ export function mapWriteError(error: unknown, txHash: Hash | null = null): LoanT
     );
   }
   if (lower.includes('no active loan')) {
-    return new LoanTxError('Loan.sol has no active loan for this wallet.', 'reverted', txHash);
+    return new LoanTxError('There is no active loan for this wallet.', 'reverted', txHash);
   }
   if (lower.includes('chain mismatch') || lower.includes('wrong network')) {
     return new LoanTxError(

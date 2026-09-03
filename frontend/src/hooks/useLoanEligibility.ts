@@ -107,11 +107,11 @@ export function useLoanEligibility() {
       const reasons: string[] = [];
 
       if (hasActiveLoan) {
-        reasons.push('Loan.sol already has an active loan for this wallet (one at a time).');
+        reasons.push('This wallet already has an active loan (one at a time).');
       }
       if (!canSubmitDeposit) {
         reasons.push(
-          `requestLoan must attach ${originationDepositEth()} 0G. That deposit stays in the contract; it is not the loan principal.`,
+          `Submit requires a ${originationDepositEth()} 0G deposit. That deposit stays in the contract; it is not the loan amount.`,
         );
       }
       if (!remainingAfterDepositOk) {
@@ -121,7 +121,7 @@ export function useLoanEligibility() {
       }
       if (count < min) {
         reasons.push(
-          `Loan.sol getBorrowerTxCount is ${count}; it must be at least ${min}. This counter is set by the contract owner via setBorrowerTxCount, not read from your wallet's real transaction history.`,
+          `Activity counter is ${count}; it must be at least ${min}. This is not your wallet nonce.`,
         );
       }
 
@@ -148,7 +148,7 @@ export function useLoanEligibility() {
         reasons: [
           error instanceof Error
             ? error.message
-            : 'Could not read Loan.sol eligibility from chain.',
+            : 'Could not read loan eligibility from chain.',
         ],
         ready: false,
       });
