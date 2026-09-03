@@ -7,7 +7,8 @@ export type AiView = CreditProfileDto['ai'];
 export function isPendingAi(
   ai: { available: boolean; blockedReason?: string | null } | null | undefined,
 ): boolean {
-  if (!ai || ai.available) return false;
+  if (!ai) return true;
+  if (ai.available) return false;
   const reason = (ai.blockedReason ?? '').toLowerCase();
   if (!reason) return true;
   return (
@@ -18,6 +19,18 @@ export function isPendingAi(
     reason.includes('run ai assessment') ||
     reason.includes('run 0g compute')
   );
+}
+
+/**
+ * Dropdown changes must stay idle. A missing/failed slot is only an error after
+ * this analysis type was actually POSTed (`hasAttempted`).
+ */
+export function isAwaitingComputeRun(
+  ai: { available: boolean; blockedReason?: string | null } | null | undefined,
+  hasAttempted?: boolean,
+): boolean {
+  if (hasAttempted === false) return !ai || !ai.available;
+  return isPendingAi(ai);
 }
 
 export function mergePreservingSessionAi(

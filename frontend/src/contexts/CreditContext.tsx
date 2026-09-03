@@ -53,6 +53,7 @@ interface CreditContextValue {
   analysisType: AnalysisType;
   setAnalysisType: (type: AnalysisType) => void;
   displayedAi: CreditProfileDto['ai'] | null;
+  hasAttemptedCurrentAnalysis: boolean;
   refresh: () => Promise<void>;
   requestAiAssessment: () => Promise<void>;
 }
@@ -132,6 +133,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
   const [isRefreshingScore, setIsRefreshingScore] = useState(false);
   const [isRunningAi, setIsRunningAi] = useState(false);
   const [analysisType, setAnalysisTypeState] = useState<AnalysisType>(DEFAULT_ANALYSIS_TYPE);
+  const [attemptedAnalysis, setAttemptedAnalysis] = useState<Partial<Record<AnalysisType, true>>>({});
   const [error, setError] = useState<string | null>(null);
   const [isRealTimeConnected, setIsRealTimeConnected] = useState(false);
   const [zeroGStatus, setZeroGStatus] = useState<ZeroGStatus>(() =>
@@ -197,6 +199,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
     if (!account) return;
     const wallet = account;
     const type = analysisTypeRef.current;
+    setAttemptedAnalysis((prev) => ({ ...prev, [type]: true }));
     setIsRunningAi(true);
     try {
       const facts = intelligenceRef.current
@@ -235,6 +238,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
     setHistory([]);
     setError(null);
     setAnalysisTypeState(DEFAULT_ANALYSIS_TYPE);
+    setAttemptedAnalysis({});
     if (!account) return;
     void load();
   }, [account, load]);
@@ -306,6 +310,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
 
   const isLoading = isRefreshingScore || isRunningAi;
   const displayedAi = aiForType(intelligence, analysisType);
+  const hasAttemptedCurrentAnalysis = attemptedAnalysis[analysisType] === true;
 
   const value = useMemo(
     () => ({
@@ -321,6 +326,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
       analysisType,
       setAnalysisType,
       displayedAi,
+      hasAttemptedCurrentAnalysis,
       refresh: load,
       requestAiAssessment,
     }),
@@ -337,6 +343,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
       analysisType,
       setAnalysisType,
       displayedAi,
+      hasAttemptedCurrentAnalysis,
       load,
       requestAiAssessment,
     ],

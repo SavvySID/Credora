@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && tsc -p api-lib/tsconfig.emit.json && vite build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p api/tsconfig.json",
-    "test:api": "npx --yes tsx --test api-lib/riskSchema.test.ts api-lib/scoring.test.ts api-lib/compute.test.ts api-lib/analysis.test.ts",
+    "test:api": "npx --yes tsx --test api-lib/riskSchema.test.ts api-lib/scoring.test.ts api-lib/compute.test.ts api-lib/analysis.test.ts src/lib/aiAssessment.test.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },

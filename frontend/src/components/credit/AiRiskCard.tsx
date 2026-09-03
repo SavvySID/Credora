@@ -9,7 +9,7 @@ import type { Tone } from '@/lib/credit';
 import { aiRiskTone } from '@/lib/credit';
 import { formatDateTime, formatPercent } from '@/lib/format';
 import { ANALYSIS_OPTIONS, analysisLabel, type AnalysisType } from '@/lib/analysis';
-import { isPendingAi } from '@/lib/aiAssessment';
+import { isAwaitingComputeRun } from '@/lib/aiAssessment';
 import type { CreditProfileDto } from '@/services/api';
 
 export type AiRiskView = Pick<
@@ -82,6 +82,7 @@ export function AiRiskCard({
   analysisType,
   onAnalysisTypeChange,
   onRun,
+  hasAttempted,
 }: {
   ai: AiRiskView | null | undefined;
   compact?: boolean;
@@ -90,10 +91,14 @@ export function AiRiskCard({
   analysisType?: AnalysisType;
   onAnalysisTypeChange?: (type: AnalysisType) => void;
   onRun?: () => void;
+  /** False until Run is clicked for `analysisType`. Omit when the card has no type picker. */
+  hasAttempted?: boolean;
 }) {
   const selected = analysisType ?? ai?.analysisType ?? 'general';
   const selectedLabel = analysisLabel(selected);
   const showControls = Boolean(onAnalysisTypeChange);
+  const aiForSelected =
+    ai?.analysisType && analysisType && ai.analysisType !== analysisType ? null : ai;
 
   if (loading) {
     return (
@@ -128,12 +133,12 @@ export function AiRiskCard({
     );
   }
 
-  if (!ai || !ai.available) {
-    const pending = isPendingAi(ai);
+  if (!aiForSelected || !aiForSelected.available) {
+    const pending = isAwaitingComputeRun(aiForSelected, hasAttempted);
     const noticeTitle = pending ? 'Ready for 0G Compute' : 'Could not complete assessment';
     const noticeBody = pending
       ? `Click Run 0G Compute assessment to generate a ${selectedLabel.toLowerCase()} from your on-chain facts. The Credora score stays deterministic.`
-      : (ai?.blockedReason ?? '0G Compute did not return a result. Try again.');
+      : (aiForSelected?.blockedReason ?? '0G Compute did not return a result. Try again.');
 
     return (
       <Card>
@@ -164,10 +169,10 @@ export function AiRiskCard({
     );
   }
 
-  const tone: Tone = aiRiskTone(ai.riskLevel);
-  const riskFactors = ai.factors?.keyRiskFactors ?? [];
-  const positiveFactors = ai.factors?.positiveFactors ?? [];
-  const label = ai.analysisLabel ?? selectedLabel;
+  const tone: Tone = aiRiskTone(aiForSelected.riskLevel);
+  const riskFactors = aiForSelected.factors?.keyRiskFactors ?? [];
+  const positiveFactors = aiForSelected.factors?.positiveFactors ?? [];
+  const label = aiForSelected.analysisLabel ?? selectedLabel;
 
   return (
     <Card>
@@ -183,8 +188,8 @@ export function AiRiskCard({
             <Badge tone="neutral" size="sm">
               {label}
             </Badge>
-            {ai.verification && ai.verification.status !== 'unverified' ? (
-              <VerificationStatusBadge status={ai.verification.status} />
+            {aiForSelected.verification && aiForSelected.verification.status !== 'unverified' ? (
+              <VerificationStatusBadge status={aiForSelected.verification.status} />
             ) : null}
           </div>
         }
@@ -201,23 +206,23 @@ export function AiRiskCard({
         <div className="flex flex-wrap items-end gap-3">
           <div>
             <p className="text-2xs uppercase tracking-wider text-ink-muted">Compute risk score</p>
-            <p className="font-display text-3xl font-semibold tabular">{ai.riskScore ?? '—'}</p>
+            <p className="font-display text-3xl font-semibold tabular">{aiForSelected.riskScore ?? '—'}</p>
             <p className="mt-0.5 text-2xs text-ink-faint">0–1000 · higher means more risk · not the Credora score</p>
           </div>
-          {ai.riskLevel ? <Badge tone={tone}>{ai.riskLevel} risk</Badge> : null}
-          {ai.riskOutlook ? (
+          {aiForSelected.riskLevel ? <Badge tone={tone}>{aiForSelected.riskLevel} risk</Badge> : null}
+          {aiForSelected.riskOutlook ? (
             <Badge tone="neutral" size="sm">
-              Outlook {ai.riskOutlook}
+              Outlook {aiForSelected.riskOutlook}
             </Badge>
           ) : null}
-          {ai.cached ? (
+          {aiForSelected.cached ? (
             <Badge tone="neutral" size="sm">
               Cached
             </Badge>
           ) : null}
         </div>
-        {!compact && ai.summary ? (
-          <p className="text-sm leading-relaxed text-ink-muted">{ai.summary}</p>
+        {!compact && aiForSelected.summary ? (
+          <p className="text-sm leading-relaxed text-ink-muted">{aiForSelected.summary}</p>
         ) : null}
         {!compact && (riskFactors.length > 0 || positiveFactors.length > 0) ? (
           <div className="grid gap-6 sm:grid-cols-2">
@@ -248,11 +253,11 @@ export function AiRiskCard({
           </div>
         ) : null}
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-2xs text-ink-faint">
-          {ai.model ? <span>Model {ai.model}</span> : null}
-          {ai.timestamp ? <span>Generated {formatDateTime(ai.timestamp)}</span> : null}
-          {typeof ai.latencyMs === 'number' ? <span>{ai.latencyMs} ms</span> : null}
-          {typeof ai.confidence === 'number' && ai.confidence > 0 ? (
-            <span>Confidence {formatPercent(ai.confidence, 0)}</span>
+          {aiForSelected.model ? <span>Model {aiForSelected.model}</span> : null}
+          {aiForSelected.timestamp ? <span>Generated {formatDateTime(aiForSelected.timestamp)}</span> : null}
+          {typeof aiForSelected.latencyMs === 'number' ? <span>{aiForSelected.latencyMs} ms</span> : null}
+          {typeof aiForSelected.confidence === 'number' && aiForSelected.confidence > 0 ? (
+            <span>Confidence {formatPercent(aiForSelected.confidence, 0)}</span>
           ) : null}
         </div>
       </CardBody>

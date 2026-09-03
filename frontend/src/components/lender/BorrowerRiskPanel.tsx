@@ -16,10 +16,12 @@ export function BorrowerRiskPanel({ profile }: { profile: CreditProfileDto }) {
   const [analysisType, setAnalysisType] = useState<AnalysisType>(DEFAULT_ANALYSIS_TYPE);
   const [running, setRunning] = useState(false);
   const [aiOverride, setAiOverride] = useState<CreditProfileDto['ai'] | null>(null);
+  const [attemptedAnalysis, setAttemptedAnalysis] = useState<Partial<Record<AnalysisType, true>>>({});
 
   useEffect(() => {
     setAiOverride(null);
     setAnalysisType(DEFAULT_ANALYSIS_TYPE);
+    setAttemptedAnalysis({});
   }, [profile.wallet]);
 
   const selectedAi = useMemo(() => {
@@ -29,6 +31,7 @@ export function BorrowerRiskPanel({ profile }: { profile: CreditProfileDto }) {
 
   async function runAssessment() {
     setRunning(true);
+    setAttemptedAnalysis((prev) => ({ ...prev, [analysisType]: true }));
     try {
       const result = await api.riskAssessment(
         profile.wallet,
@@ -84,6 +87,7 @@ export function BorrowerRiskPanel({ profile }: { profile: CreditProfileDto }) {
             setAiOverride(null);
           }}
           onRun={() => void runAssessment()}
+          hasAttempted={attemptedAnalysis[analysisType] === true}
         />
       </div>
 

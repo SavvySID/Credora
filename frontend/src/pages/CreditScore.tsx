@@ -62,6 +62,7 @@ export default function CreditScore() {
     analysisType,
     setAnalysisType,
     displayedAi,
+    hasAttemptedCurrentAnalysis,
   } = useCredit();
   const { loans } = useLoans();
 
@@ -335,6 +336,7 @@ export default function CreditScore() {
             onAnalysisTypeChange={setAnalysisType}
             onRun={runAiAssessment}
             onRetry={runAiAssessment}
+            hasAttempted={hasAttemptedCurrentAnalysis}
             ai={displayedAi}
           />
           <Card>
