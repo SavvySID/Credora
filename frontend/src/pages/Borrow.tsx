@@ -94,8 +94,8 @@ export default function Borrow() {
         type: 'loan_approved',
         title: 'Loan recorded on-chain',
         description: loan.originTxHash
-          ? `Loan amount ${parsedAmount} 0G. Tx ${loan.originTxHash.slice(0, 10)}…`
-          : `Loan amount ${parsedAmount} 0G recorded on-chain`,
+          ? `Accounting principal ${parsedAmount} 0G. Tx ${loan.originTxHash.slice(0, 10)}…`
+          : `Accounting principal ${parsedAmount} 0G recorded on Loan.sol`,
         amount: parsedAmount,
         tone: 'positive',
         verified: loan.verification?.status === 'verified',
@@ -146,14 +146,14 @@ export default function Borrow() {
             ) : null
           }
           title="Request a loan"
-          description={`Fixed ${LOAN_TERMS.interestRate * 100}% interest over ${LOAN_TERMS.durationDays} days. The amount is recorded on-chain. A ${originationDepositEth()} 0G deposit is sent with the request.`}
+          description={`Fixed ${LOAN_TERMS.interestRate * 100}% interest over ${LOAN_TERMS.durationDays} days. Principal is recorded on Loan.sol as accounting data. A ${originationDepositEth()} 0G origination deposit is sent with the transaction.`}
         />
 
         <div className="grid gap-4 lg:grid-cols-[1fr_minmax(0,360px)]">
           <Card>
             <CardHeader
               title="Loan application"
-              description="Enter the amount to record. You will not receive this in your wallet."
+              description="Enter an accounting principal. Loan.sol will not transfer this amount to you."
               icon={<Calculator className="h-4 w-4" />}
             />
 
@@ -161,9 +161,9 @@ export default function Borrow() {
               {outcome === 'idle' ? (
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <Field
-                    label="Loan amount"
+                    label="Accounting principal"
                     htmlFor="amount"
-                    hint={`Guideline capacity ${formatEthCompact(guidelineMax)} 0G (${LOAN_TERMS.maxBalanceMultiple}× balance). This cap is a Credora guideline only.`}
+                    hint={`Guideline capacity ${formatEthCompact(guidelineMax)} 0G (${LOAN_TERMS.maxBalanceMultiple}× balance). Loan.sol does not enforce this cap.`}
                     error={guideline}
                     trailing={
                       <span className="text-xs text-ink-soft">
@@ -212,7 +212,7 @@ export default function Borrow() {
                       </div>
 
                       <StatRow
-                        label="Loan amount"
+                        label="Recorded principal"
                         value={`${formatEthCompact(parsedAmount)} 0G`}
                       />
                       <StatRow
@@ -271,7 +271,7 @@ export default function Borrow() {
                     <InlineNotice
                       tone="caution"
                       icon={<Info className="h-4 w-4" />}
-                      title="Before you submit"
+                      title="Contract preflight"
                     >
                       <ul className="mt-1 space-y-1">
                         {eligibility.reasons.map((reason) => (
@@ -309,13 +309,13 @@ export default function Borrow() {
                   </span>
                   <h3 className="mt-5 font-display text-2xl font-semibold">Loan recorded on-chain</h3>
                   <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-muted">
-                    The loan was recorded on-chain. The amount is accounting data — it was not
-                    sent to this wallet. The {originationDepositEth()} 0G deposit remains in the
-                    contract.
+                    Loan.sol accepted the request and emitted LoanApproved. The principal is
+                    accounting data on the contract — it was not sent to this wallet. The{' '}
+                    {originationDepositEth()} 0G origination deposit remains in the contract.
                   </p>
 
                   <div className="mx-auto mt-6 max-w-sm rounded-xl border border-hairline bg-surface-muted p-5 text-left">
-                    <StatRow label="Loan amount" value={`${formatEthCompact(parsedAmount)} 0G`} />
+                    <StatRow label="Recorded principal" value={`${formatEthCompact(parsedAmount)} 0G`} />
                     <StatRow label="Interest" value={`${formatEthCompact(interest)} 0G`} />
                     <StatRow
                       label="Total repayment"
@@ -362,8 +362,8 @@ export default function Borrow() {
                   </span>
                   <h3 className="mt-5 font-display text-2xl font-semibold">Request did not complete</h3>
                   <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-muted">
-                    No loan was created. A loan is only recorded after the transaction confirms
-                    on 0G Galileo.
+                    No loan was created. A loan is only recorded after Loan.sol confirms the
+                    transaction on 0G Galileo.
                   </p>
 
                   <ul className="mx-auto mt-6 max-w-sm space-y-2 rounded-xl border border-critical-100 bg-critical-50 p-5 text-left">
@@ -404,7 +404,7 @@ export default function Borrow() {
                 <span className="ml-2 text-base font-semibold text-brand-200">/1000</span>
               </p>
               <p className="mt-2 text-sm text-brand-100">
-                Informational only. This score does not approve or reject a request.
+                Informational only. Loan.sol does not use this score to approve or reject a request.
               </p>
 
               <div className="mt-6 space-y-3 border-t border-white/10 pt-4">
@@ -452,7 +452,7 @@ export default function Borrow() {
                   value={balance ? `${formatEth(balance)} ${balanceSymbol}` : '—'}
                 />
                 <StatRow
-                  label="Activity counter"
+                  label="Owner-set tx counter"
                   value={
                     eligibility.ownerSetTxCount === null
                       ? '—'
