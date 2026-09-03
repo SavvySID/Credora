@@ -59,10 +59,7 @@ export default function CreditScore() {
     error,
     refresh,
     requestAiAssessment,
-    analysisType,
-    setAnalysisType,
     displayedAi,
-    hasAttemptedCurrentAnalysis,
   } = useCredit();
   const { loans } = useLoans();
 
@@ -332,11 +329,8 @@ export default function CreditScore() {
           <ScoreSourceLegend />
           <AiRiskCard
             loading={isRunningAi}
-            analysisType={analysisType}
-            onAnalysisTypeChange={setAnalysisType}
             onRun={runAiAssessment}
             onRetry={runAiAssessment}
-            hasAttempted={hasAttemptedCurrentAnalysis}
             ai={displayedAi}
           />
           <Card>
