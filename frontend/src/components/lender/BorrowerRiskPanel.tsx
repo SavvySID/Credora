@@ -7,7 +7,7 @@ import { ReputationRow } from '@/components/credit/ReputationRow';
 import { ScoreSourceLegend } from '@/components/credit/ScoreSourceLegend';
 import { VerificationStatusBadge } from '@/components/credit/VerificationStatusBadge';
 import { FactorList } from '@/components/credit/FactorList';
-import { api, creditAiFromRiskAssessment, type CreditProfileDto } from '@/services/api';
+import { api, creditAiFromRiskAssessment, computeFactsFromProfile, type CreditProfileDto } from '@/services/api';
 import { DEFAULT_ANALYSIS_TYPE, type AnalysisType } from '@/lib/analysis';
 import { formatEth, formatNumber, formatPercent } from '@/lib/format';
 import toast from 'react-hot-toast';
@@ -30,7 +30,12 @@ export function BorrowerRiskPanel({ profile }: { profile: CreditProfileDto }) {
   async function runAssessment() {
     setRunning(true);
     try {
-      const result = await api.riskAssessment(profile.wallet, 'POST', analysisType);
+      const result = await api.riskAssessment(
+        profile.wallet,
+        'POST',
+        analysisType,
+        computeFactsFromProfile(profile),
+      );
       const fromPost = creditAiFromRiskAssessment(result);
       setAiOverride(fromPost);
       if (fromPost.available) toast.success('AI risk assessment ready');

@@ -381,6 +381,29 @@ export function creditAiFromRiskAssessment(result: RiskAssessmentDto): CreditPro
   };
 }
 
+export function computeFactsFromProfile(profile: CreditProfileDto) {
+  const summary = profile.walletSummary;
+  const stats = profile.loans.stats;
+  return {
+    wallet: profile.wallet,
+    chainId: summary.chainId,
+    balanceWei: summary.balanceWei,
+    balanceFormatted: summary.balanceFormatted,
+    transactionCount: summary.transactionCount,
+    observedTransactions:
+      (summary.txMix?.inbound ?? 0) + (summary.txMix?.outbound ?? 0) + (summary.txMix?.self ?? 0),
+    firstSeen: summary.firstSeen,
+    lastActivity: summary.lastActivity,
+    txMix: summary.txMix ?? { inbound: 0, outbound: 0, self: 0 },
+    outstandingWei: summary.outstandingWei ?? '0',
+    overdue: summary.overdue ?? false,
+    activeLoanCount: stats.active,
+    repaidLoanCount: stats.repaid,
+    repayment: stats,
+    sourceDataHash: profile.sourceDataHash,
+  };
+}
+
 export const api = {
   health: () => request<HealthDto>('/health', {}, { acceptStatuses: [503] }),
 
@@ -390,12 +413,19 @@ export const api = {
   creditProfile: (address: string) =>
     request<CreditProfileDto>(`/credit-profile?address=${encodeURIComponent(address)}`),
 
-  riskAssessment: (address: string, method: 'GET' | 'POST' = 'GET', analysisType?: AnalysisType) => {
+  riskAssessment: (
+    address: string,
+    method: 'GET' | 'POST' = 'GET',
+    analysisType?: AnalysisType,
+    facts?: ReturnType<typeof computeFactsFromProfile>,
+  ) => {
     const params = new URLSearchParams({ address });
     if (analysisType) params.set('analysisType', analysisType);
     return request<RiskAssessmentDto>(`/risk-assessment?${params.toString()}`, {
       method,
-      ...(method === 'POST' && analysisType ? { body: JSON.stringify({ analysisType }) } : {}),
+      ...(method === 'POST'
+        ? { body: JSON.stringify({ analysisType, ...(facts ? { facts } : {}) }) }
+        : {}),
     });
   },
 

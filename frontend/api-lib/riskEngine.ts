@@ -104,52 +104,58 @@ function borrowerFacts(
   score: ScoreResult,
   analysisType: AnalysisType,
 ) {
-  const facts: Record<string, unknown> = {
-    chainId: features.chainId,
-    wallet,
-    balanceWei: features.balanceWei,
-    balanceFormatted: features.balanceFormatted,
-    transactionCount: features.transactionCount,
-    observedTransactions: features.observedTransactions,
-    firstSeen: features.firstSeen,
-    lastActivity: features.lastActivity,
-    txMix: features.txMix ?? { inbound: 0, outbound: 0, self: 0 },
-    outstandingWei: features.outstandingWei ?? '0',
-    overdue: features.overdue ?? false,
-    activeLoanCount: features.activeLoanCount ?? 0,
-    repaidLoanCount: features.repaidLoanCount ?? 0,
-    repayment: features.repayment,
-    deterministicScore: score.creditScore,
-    creditBand: score.creditBand,
-    deterministicFactors: score.factors.map((factor) => ({
-      factor: factor.factor,
-      observed: factor.observed,
-      normalized: Number(factor.normalized.toFixed(4)),
-      impact: factor.impact,
-    })),
-    missingInputs: score.completeness.missing,
-    instructions: [
-      'Do not invent loans, transactions, balances, or scores.',
-      'Do not modify deterministicScore.',
-      'riskScore is independent: higher means more risk.',
-      'riskLevel must be exactly Low, Medium, or High. Do not copy creditBand.',
-    ],
-  };
+  const compact = Boolean(process.env.VERCEL);
+  const facts: Record<string, unknown> = compact
+    ? {
+        wallet,
+        balance: features.balanceFormatted,
+        nonce: features.transactionCount,
+        firstSeen: features.firstSeen,
+        lastActivity: features.lastActivity,
+        txMix: features.txMix ?? { inbound: 0, outbound: 0, self: 0 },
+        loans: {
+          active: features.activeLoanCount ?? 0,
+          repaid: features.repaidLoanCount ?? 0,
+          overdue: features.overdue ?? false,
+          repaymentRate: features.repayment?.repaymentRate ?? null,
+        },
+        deterministicScore: score.creditScore,
+        creditBand: score.creditBand,
+      }
+    : {
+        chainId: features.chainId,
+        wallet,
+        balanceWei: features.balanceWei,
+        balanceFormatted: features.balanceFormatted,
+        transactionCount: features.transactionCount,
+        observedTransactions: features.observedTransactions,
+        firstSeen: features.firstSeen,
+        lastActivity: features.lastActivity,
+        txMix: features.txMix ?? { inbound: 0, outbound: 0, self: 0 },
+        outstandingWei: features.outstandingWei ?? '0',
+        overdue: features.overdue ?? false,
+        activeLoanCount: features.activeLoanCount ?? 0,
+        repaidLoanCount: features.repaidLoanCount ?? 0,
+        repayment: features.repayment,
+        deterministicScore: score.creditScore,
+        creditBand: score.creditBand,
+        deterministicFactors: score.factors.map((factor) => ({
+          factor: factor.factor,
+          observed: factor.observed,
+          normalized: Number(factor.normalized.toFixed(4)),
+          impact: factor.impact,
+        })),
+        missingInputs: score.completeness.missing,
+        instructions: [
+          'Do not invent loans, transactions, balances, or scores.',
+          'Do not modify deterministicScore.',
+          'riskScore is independent: higher means more risk.',
+          'riskLevel must be exactly Low, Medium, or High. Do not copy creditBand.',
+        ],
+      };
 
   if (analysisType !== 'general') {
-    facts.analysisType = analysisType;
-    facts.analysisFocus = ANALYSIS_FOCUS[analysisType];
-    (facts.instructions as string[]).push(`Focus this assessment on: ${ANALYSIS_FOCUS[analysisType]}`);
-    (facts.instructions as string[]).push(
-      'Return the same JSON keys as a general assessment, including a non-empty assessmentSummary string.',
-    );
-    facts.requiredOutputKeys = [
-      'riskLevel',
-      'riskScore',
-      'keyRiskFactors',
-      'positiveFactors',
-      'assessmentSummary',
-    ];
+    facts.focus = ANALYSIS_FOCUS[analysisType];
   }
 
   return facts;
@@ -224,15 +230,17 @@ export async function evaluateAiRisk(
     );
   }
 
-  const cached = await getCachedAiAssessment(wallet, hash, analysisType);
+  const cached = indexerConfigured().ok ? await getCachedAiAssessment(wallet, hash, analysisType) : null;
   if (cached) return cached;
 
-  try {
-    const indexed = await indexerClient.records(wallet, ['ai_risk_assessment'], 40);
-    const existing = aiFromRecordList(indexed.records, hash, analysisType);
-    if (existing) return existing;
-  } catch {
-    /* Cache miss is recoverable; a records lookup failure should not skip Compute. */
+  if (indexerConfigured().ok) {
+    try {
+      const indexed = await indexerClient.records(wallet, ['ai_risk_assessment'], 40);
+      const existing = aiFromRecordList(indexed.records, hash, analysisType);
+      if (existing) return existing;
+    } catch {
+      /* Cache miss is recoverable; a records lookup failure should not skip Compute. */
+    }
   }
 
   const capability = computeCapability();

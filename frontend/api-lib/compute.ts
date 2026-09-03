@@ -211,26 +211,27 @@ export async function assessBorrowerRisk(
   }
 
   const started = Date.now();
+  const onVercel = Boolean(process.env.VERCEL);
   const outlookHint =
     analysisType === 'risk-outlook'
-      ? ' Also include riskOutlook as exactly Improving, Stable, Deteriorating, or Insufficient Data.'
+      ? ' Include riskOutlook as Improving, Stable, Deteriorating, or Insufficient Data.'
       : '';
-  const specialized =
-    process.env.VERCEL
-      ? `${RISK_SYSTEM} Focus: ${ANALYSIS_FOCUS[analysisType]} JSON keys: riskLevel, riskScore, keyRiskFactors, positiveFactors, assessmentSummary.${outlookHint}`
+  const system = onVercel
+    ? `${RISK_SYSTEM}${analysisType === 'general' ? '' : ` Focus: ${ANALYSIS_FOCUS[analysisType]}.${outlookHint}`}`
+    : analysisType === 'general'
+      ? RISK_SYSTEM
       : `${RISK_SYSTEM} Analytical focus: ${ANALYSIS_FOCUS[analysisType]} ${RISK_JSON_SHAPE}${outlookHint} Use only the provided facts.`;
-  const system = analysisType === 'general' ? RISK_SYSTEM : specialized;
   const messages = [
     { role: 'system', content: system },
     { role: 'user', content: userJson },
   ];
 
-  const withFormat = await chatCompletion(messages, true, analysisType);
-  // Hobby functions die at ~10s. A second router attempt after features fetch will be killed.
+  // json_object + reasoning_effort makes glm miss the Hobby window. Local can retry.
+  const withFormat = await chatCompletion(messages, !onVercel);
   const completion =
-    process.env.VERCEL || withFormat.ok || withFormat.status === null
+    onVercel || withFormat.ok || withFormat.status === null
       ? withFormat
-      : await chatCompletion(messages, false, analysisType);
+      : await chatCompletion(messages, false);
 
   const latencyMs = Date.now() - started;
 
@@ -272,25 +273,20 @@ export async function assessBorrowerRisk(
 async function chatCompletion(
   messages: Array<{ role: string; content: string }>,
   jsonMode: boolean,
-  analysisType: AnalysisType = 'general',
 ): Promise<{ ok: true; text: string; model: string | null; status: number } | { ok: false; reason: string; status: number | null }> {
   const { routerUrl, apiKey, model, timeoutMs } = computeEnv();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const maxTokens = process.env.VERCEL
-    ? analysisType === 'general'
-      ? 400
-      : 280
-    : 1600;
+  const maxTokens = process.env.VERCEL ? 220 : 1600;
 
   try {
     const body: Record<string, unknown> = {
       model,
       temperature: 0,
       max_tokens: maxTokens,
-      reasoning_effort: 'low',
       messages,
     };
+    if (!process.env.VERCEL) body.reasoning_effort = 'low';
     if (jsonMode) body.response_format = { type: 'json_object' };
 
     const response = await fetch(`${routerUrl}/chat/completions`, {

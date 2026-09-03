@@ -18,6 +18,7 @@ import type { CreditScoreUpdateEvent } from '@/services/0g-pipeline';
 import {
   api,
   creditAiFromRiskAssessment,
+  computeFactsFromProfile,
   type CreditProfileDto,
 } from '@/services/api';
 import { DEFAULT_ANALYSIS_TYPE, type AnalysisType } from '@/lib/analysis';
@@ -198,7 +199,10 @@ export function CreditProvider({ children }: { children: ReactNode }) {
     const type = analysisTypeRef.current;
     setIsRunningAi(true);
     try {
-      const result = await api.riskAssessment(wallet, 'POST', type);
+      const facts = intelligenceRef.current
+        ? computeFactsFromProfile(intelligenceRef.current)
+        : undefined;
+      const result = await api.riskAssessment(wallet, 'POST', type, facts);
       const fromPost = creditAiFromRiskAssessment(result);
       writeSessionAiAssessment(wallet, type, fromPost);
       if (accountRef.current?.toLowerCase() === wallet.toLowerCase()) {
@@ -212,19 +216,6 @@ export function CreditProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      try {
-        const intel = await api.creditProfile(wallet);
-        if (accountRef.current?.toLowerCase() !== wallet.toLowerCase()) return;
-        const patched = mergeAssessment(
-          intel,
-          type,
-          intel.aiByAnalysis?.[type]?.available ? intel.aiByAnalysis[type]! : fromPost,
-        );
-        applyIntelligence(patched);
-      } catch {
-        /* POST result is already on the page; profile refresh is best-effort. */
-      }
-
       if (accountRef.current?.toLowerCase() === wallet.toLowerCase()) {
         if (fromPost.available) toast.success('AI risk assessment ready');
         else toast.error(fromPost.blockedReason ?? '0G Compute did not return a result');
@@ -235,7 +226,7 @@ export function CreditProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsRunningAi(false);
     }
-  }, [account, applyIntelligence]);
+  }, [account]);
 
   useEffect(() => {
     setProfile(null);
