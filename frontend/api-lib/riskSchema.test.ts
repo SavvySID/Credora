@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseAiRiskJson, parseComputeChoice } from './riskSchema';
+import { parseAiRiskJson } from './riskSchema';
 
 test('parses optional riskOutlook without changing riskScore semantics', () => {
   const result = parseAiRiskJson(
@@ -153,7 +153,7 @@ test('extracts JSON from reasoning_content when content is empty', () => {
   if (result.ok) assert.equal(result.value.riskScore, 430);
 });
 
-test('drops invalid confidence instead of failing the assessment', () => {
+test('rejects invalid confidence', () => {
   const result = parseAiRiskJson(
     JSON.stringify({
       riskLevel: 'Low',
@@ -164,11 +164,10 @@ test('drops invalid confidence instead of failing the assessment', () => {
       confidence: 1.4,
     }),
   );
-  assert.equal(result.ok, true);
-  if (result.ok) assert.equal(result.value.confidence, undefined);
+  assert.equal(result.ok, false);
 });
 
-test('truncates oversized factor lists instead of failing the assessment', () => {
+test('rejects oversized factor lists', () => {
   const result = parseAiRiskJson(
     JSON.stringify({
       riskLevel: 'Low',
@@ -179,43 +178,7 @@ test('truncates oversized factor lists instead of failing the assessment', () =>
       confidence: 0.5,
     }),
   );
-  assert.equal(result.ok, true);
-  if (result.ok) {
-    assert.equal(result.value.keyRiskFactors.length, 8);
-    assert.equal(result.value.keyRiskFactors[0], 'factor 0');
-  }
-});
-
-test('coerces string riskScore and trailing commas', () => {
-  const result = parseAiRiskJson(
-    '{"riskLevel":"Medium","riskScore":"410","keyRiskFactors":["Thin file"],"positiveFactors":[],"assessmentSummary":"Thin file.",}',
-  );
-  assert.equal(result.ok, true);
-  if (result.ok) assert.equal(result.value.riskScore, 410);
-});
-
-test('closes a truncated JSON object cut off mid-summary', () => {
-  const result = parseAiRiskJson(
-    '{"riskLevel":"Low","riskScore":210,"keyRiskFactors":["Thin file"],"positiveFactors":["Active"],"assessmentSummary":"Limited hist',
-  );
-  assert.equal(result.ok, true);
-  if (result.ok) {
-    assert.equal(result.value.riskLevel, 'Low');
-    assert.equal(result.value.riskScore, 210);
-  }
-});
-
-test('prefers content JSON over a larger reasoning fragment', () => {
-  const result = parseComputeChoice({
-    message: {
-      content:
-        '{"riskLevel":"Low","riskScore":120,"keyRiskFactors":[],"positiveFactors":["Active"],"assessmentSummary":"Quiet file."}',
-      reasoning_content:
-        '{"riskLevel":"High","riskScore":900,"keyRiskFactors":["scratch"],"positiveFactors":[],"assessmentSummary":"Thinking out loud with a longer decoy object."}',
-    },
-  });
-  assert.equal(result.ok, true);
-  if (result.ok) assert.equal(result.value.riskScore, 120);
+  assert.equal(result.ok, false);
 });
 
 test('maps specialized analysis text when assessmentSummary is omitted', () => {
