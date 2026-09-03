@@ -127,9 +127,30 @@ const RISK_SYSTEM = 'You are Credora\'s on-chain credit risk analyst. You only e
     'You never invent loans, transactions, balances, or scores. You never modify the deterministicScore. ' +
     'Higher riskScore means more risk (0 = lowest risk, 1000 = highest risk). ' +
     'riskLevel must be exactly one of Low, Medium, High — never creditBand values (Building, Established, Excellent). ' +
+    'Always include keyRiskFactors and positiveFactors as arrays of short factual strings drawn only from the provided facts ' +
+    '(loan history, tenure, activity, overdue/defaults, balances). Do not treat deterministicScore as a Compute risk or positive factor. ' +
     'Reply with a single JSON object only.';
+/** glm drops keys unless the shape is in the system prompt on every path, including Vercel. */
+const RISK_JSON_SHAPE = 'Required JSON keys — do not omit any of them: ' +
+    'riskLevel (exactly Low, Medium, or High), ' +
+    'riskScore (integer 0-1000, higher = more risk), ' +
+    'keyRiskFactors (array of strings), ' +
+    'positiveFactors (array of strings), ' +
+    'assessmentSummary (non-empty string: the focused analysis in 1-4 sentences). ' +
+    'Optional: confidence (number 0-1). Extra keys are allowed. ' +
+    'Shape example only (replace with your analysis of the facts): ' +
+    '{"riskLevel":"Medium","riskScore":410,"keyRiskFactors":["example"],"positiveFactors":["example"],"assessmentSummary":"Focused analysis of the provided facts."}';
+const REPAIR_BUDGET_MS = 3_000;
+const MIN_COMPLETION_TOKENS = 500;
 /**
  * Structured 0G Compute risk inference. Never returns a fabricated assessment.
+ *
+ * Stability contract — do not strip these for Vercel latency:
+ * - Always request `response_format: json_object` first
+ * - Always send `reasoning_effort: low` (glm thinking otherwise eats max_tokens)
+ * - Never set max_tokens below 500
+ * - Always include RISK_JSON_SHAPE, including on Vercel
+ * Drop json_object only if the router rejects the format (400/422).
  */
 async function assessBorrowerRisk(userJson) {
     const capability = (0, computeProbe_1.computeCapability)();
@@ -144,18 +165,16 @@ async function assessBorrowerRisk(userJson) {
         };
     }
     const started = Date.now();
-    const onVercel = Boolean(process.env.VERCEL);
-    const system = RISK_SYSTEM;
+    const budgetMs = (0, computeProbe_1.computeEnv)().timeoutMs;
+    const remaining = () => Math.max(0, budgetMs - (Date.now() - started));
     const messages = [
-        { role: 'system', content: system },
+        { role: 'system', content: `${RISK_SYSTEM} ${RISK_JSON_SHAPE} Use only the provided facts.` },
         { role: 'user', content: userJson },
     ];
-    // json_object + reasoning_effort makes glm miss the Hobby window. Local can retry.
-    const withFormat = await chatCompletion(messages, !onVercel);
-    const completion = onVercel || withFormat.ok || withFormat.status === null
-        ? withFormat
-        : await chatCompletion(messages, false);
-    const latencyMs = Date.now() - started;
+    let completion = await chatCompletion(messages, true, remaining());
+    if (!completion.ok && jsonFormatRejected(completion.status, completion.reason)) {
+        completion = await chatCompletion(messages, false, remaining());
+    }
     const requestedModel = (0, computeProbe_1.computeModelId)();
     if (!completion.ok) {
         return {
@@ -164,10 +183,29 @@ async function assessBorrowerRisk(userJson) {
             provider: '0G Compute Router',
             model: requestedModel,
             blockedReason: completion.reason,
-            latencyMs,
+            latencyMs: Date.now() - started,
         };
     }
-    const parsed = (0, riskSchema_1.parseAiRiskJson)(completion.text);
+    let parsed = (0, riskSchema_1.parseComputeChoice)(completion.choice);
+    if (!parsed.ok && completion.text && remaining() >= REPAIR_BUDGET_MS) {
+        const repaired = await chatCompletion([
+            {
+                role: 'system',
+                content: `${RISK_SYSTEM} ${RISK_JSON_SHAPE} Reply with the JSON object only. No markdown.`,
+            },
+            {
+                role: 'user',
+                content: 'The previous reply was not valid JSON for the required schema. ' +
+                    'Convert it into that JSON object. Do not invent loans, balances, or scores.\n\n' +
+                    completion.text.slice(0, 2500),
+            },
+        ], true, remaining());
+        if (repaired.ok) {
+            const repairedParsed = (0, riskSchema_1.parseComputeChoice)(repaired.choice);
+            if (repairedParsed.ok)
+                parsed = repairedParsed;
+        }
+    }
     if (!parsed.ok) {
         return {
             available: false,
@@ -175,7 +213,7 @@ async function assessBorrowerRisk(userJson) {
             provider: '0G Compute Router',
             model: completion.model ?? requestedModel,
             blockedReason: parsed.reason,
-            latencyMs,
+            latencyMs: Date.now() - started,
         };
     }
     return {
@@ -184,23 +222,30 @@ async function assessBorrowerRisk(userJson) {
         provider: '0G Compute Router',
         model: completion.model ?? requestedModel,
         blockedReason: null,
-        latencyMs,
+        latencyMs: Date.now() - started,
     };
 }
-async function chatCompletion(messages, jsonMode) {
-    const { routerUrl, apiKey, model, timeoutMs } = (0, computeProbe_1.computeEnv)();
+function jsonFormatRejected(status, reason) {
+    if (status !== 400 && status !== 422)
+        return false;
+    return /response_format|json_object|json mode/i.test(reason);
+}
+async function chatCompletion(messages, jsonMode, timeoutMs) {
+    const { routerUrl, apiKey, model } = (0, computeProbe_1.computeEnv)();
+    if (timeoutMs <= 0) {
+        return { ok: false, reason: `0G Compute did not respond within ${timeoutMs}ms`, status: null };
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const maxTokens = process.env.VERCEL ? 220 : 1600;
+    const maxTokens = Math.max(MIN_COMPLETION_TOKENS, process.env.VERCEL ? 700 : 1600);
     try {
         const body = {
             model,
             temperature: 0,
             max_tokens: maxTokens,
+            reasoning_effort: 'low',
             messages,
         };
-        if (!process.env.VERCEL)
-            body.reasoning_effort = 'low';
         if (jsonMode)
             body.response_format = { type: 'json_object' };
         const response = await fetch(`${routerUrl}/chat/completions`, {
@@ -221,11 +266,12 @@ async function chatCompletion(messages, jsonMode) {
             };
         }
         const payload = (await response.json());
-        const text = payload.choices?.[0] ? (0, riskSchema_1.completionTextFromChoice)(payload.choices[0]) : '';
+        const choice = payload.choices?.[0] ?? {};
+        const text = (0, riskSchema_1.completionTextFromChoice)(choice);
         if (!text) {
             return { ok: false, reason: '0G Compute returned an empty completion', status: response.status };
         }
-        return { ok: true, text, model: payload.model ?? model, status: response.status };
+        return { ok: true, text, model: payload.model ?? model, status: response.status, choice };
     }
     catch (error) {
         const reason = error instanceof Error && error.name === 'AbortError'
